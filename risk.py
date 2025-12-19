@@ -1,20 +1,11 @@
-from config import ACCOUNT_BALANCE, RISK_PERCENT, RR_RATIO
-
-def calculate_trade(entry, stop, direction):
-    risk_amount = ACCOUNT_BALANCE * (RISK_PERCENT / 100)
-    risk_pips = abs(entry - stop)
-
-    if risk_pips == 0:
-        return None
-
-    if direction == "BUY":
-        take_profit = entry + (risk_pips * RR_RATIO)
+def calculate_sl_tp(entry, sweep_level, structure_level, direction):
+    if direction == "bullish":
+        sl = min(sweep_level, structure_level)
+        tp1 = entry + (entry - sl) * 1.5
+        tp2 = entry + (entry - sl) * 3
     else:
-        take_profit = entry - (risk_pips * RR_RATIO)
+        sl = max(sweep_level, structure_level)
+        tp1 = entry - (sl - entry) * 1.5
+        tp2 = entry - (sl - entry) * 3
 
-    return {
-        "entry": round(entry, 2),
-        "stop": round(stop, 2),
-        "tp": round(take_profit, 2),
-        "risk": risk_amount
-    }
+    return sl, tp1, tp2
