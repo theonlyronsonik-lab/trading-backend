@@ -1,6 +1,6 @@
 from data_feed import get_price
 from structure import detect_bos, get_structure_levels
-from liquidity import liquidity_sweep, liquidity_sweep_level
+from liquidity import liquidity_sweep
 from scoring import score_setup
 from notifier import send_alert
 from config import SCORE_THRESHOLD
