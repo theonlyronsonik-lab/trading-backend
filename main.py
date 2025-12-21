@@ -1,48 +1,68 @@
-from data_feed import get_price
+# main.py
+import time
+from datetime import datetime
 from structure import detect_bos, get_structure_levels
 from liquidity import liquidity_sweep
-from scoring import score_setup
-from notifier import send_alert
-from config import SCORE_THRESHOLD
-from risk import calculate_sl_tp
+from telegram import Bot
 
-def run():
-    candles = get_price()
-    direction = detect_bos(candles)
+# --- Telegram setup ---
+TELEGRAM_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+CHAT_ID = "YOUR_CHAT_ID"
+bot = Bot(token=TELEGRAM_TOKEN)
 
-    if not direction:
-        return
+# --- Trading configuration ---
+PAIR = "XAUUSD"
+TIMEFRAME = "15m"
+CHECK_INTERVAL = 60  # in seconds
 
-    liquidity = liquidity_sweep(candles)
-    score = score_setup(
-        direction,
-        direction,
-        liquidity,
-        zone_ok=True,
-        session_ok=True,
-        rr_ok=True
-    )
+def fetch_market_data(pair, timeframe):
+    """
+    Placeholder function to fetch market data.
+    Replace with your broker/API data fetching logic.
+    """
+    # Example dummy data
+    return [
+        {'open': 2000, 'high': 2010, 'low': 1990, 'close': 2005},
+        {'open': 2005, 'high': 2015, 'low': 2000, 'close': 2012},
+    ]
 
-    if score < SCORE_THRESHOLD:
-        return
+def analyze_market(candles):
+    """
+    Analyze market structure and liquidity sweeps.
+    Returns signal message if any condition is met.
+    """
+    structure_levels = get_structure_levels(candles)
+    bos = detect_bos(candles)
+    sweep = liquidity_sweep(candles, structure_levels)
 
-    entry = float(candles[-1]["close"])
-    sweep_level = liquidity_sweep_level(candles, direction)
-    structure_level = get_structure_levels(candles, direction)
+    if bos and sweep:
+        return f"Signal detected on {PAIR} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    return None
 
-    sl, tp1, tp2 = calculate_sl_tp(entry, sweep_level, structure_level, direction)
+def send_signal(message):
+    """
+    Send the signal to Telegram.
+    """
+    try:
+        bot.send_message(chat_id=CHAT_ID, text=message)
+        print(f"Telegram message sent: {message}")
+    except Exception as e:
+        print(f"Failed to send Telegram message: {e}")
 
-    message = (
-        f"XAUUSD SIGNAL 🚨\n"
-        f"Direction: {direction.upper()}\n"
-        f"Entry: {entry}\n"
-        f"SL: {sl}\n"
-        f"TP1: {tp1}\n"
-        f"TP2: {tp2}\n"
-        f"Score: {score}/10"
-    )
-
-    send_alert(message)
+def main_loop():
+    """
+    Main bot loop: fetch data, analyze, and send signals.
+    """
+    while True:
+        candles = fetch_market_data(PAIR, TIMEFRAME)
+        if candles:
+            signal = analyze_market(candles)
+            if signal:
+                send_signal(signal)
+        else:
+            print("No market data fetched.")
+        time.sleep(CHECK_INTERVAL)
 
 if __name__ == "__main__":
-    run()
+    print(f"Bot started for {PAIR} on {TIMEFRAME} timeframe.")
+    main_loop()
