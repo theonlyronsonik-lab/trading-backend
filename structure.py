@@ -1,41 +1,45 @@
-def get_structure_levels(candles, direction):
-    if direction == "bullish":
-        lows = [float(c["low"]) for c in candles[-10:]]
-        return min(lows)
-    else:
-        highs = [float(c["high"]) for c in candles[-10:]]
-        return max(highs)
-        def detect_bos(candles):
+# structure.py
+# Market Structure logic for XAUUSD (HTF = 1H)
+
+def get_structure_levels(candles, lookback=20):
     """
-    Detect Break of Structure (BOS)
-    candles: list of dicts with open, high, low, close
+    Returns recent swing high and swing low
+    candles: list of dicts with keys open, high, low, close
     """
-    if len(candles) < 3:
+    if len(candles) < lookback:
         return None
 
-    prev = candles[-3]
-    last = candles[-2]
+    recent = candles[-lookback:]
 
-    # Bullish BOS
-    if last["close"] > prev["high"]:
+    swing_high = max(c["high"] for c in recent)
+    swing_low = min(c["low"] for c in recent)
+
+    return {
+        "swing_high": swing_high,
+        "swing_low": swing_low
+    }
+
+
+def detect_bos(candles, lookback=20):
+    """
+    Detect Break of Structure (BOS)
+    Returns: 'bullish', 'bearish', or None
+    """
+    if len(candles) < lookback + 2:
+        return None
+
+    structure = get_structure_levels(candles[:-1], lookback)
+    if not structure:
+        return None
+
+    last_candle = candles[-1]
+
+    # Bullish BOS: close above previous swing high
+    if last_candle["close"] > structure["swing_high"]:
         return "bullish"
 
-    # Bearish BOS
-    if last["close"] < prev["low"]:
+    # Bearish BOS: close below previous swing low
+    if last_candle["close"] < structure["swing_low"]:
         return "bearish"
 
     return None
-
-
-def get_structure_levels(candles):
-    """
-    Return recent swing high and low
-    """
-    highs = [c["high"] for c in candles[-20:]]
-    lows = [c["low"] for c in candles[-20:]]
-
-    return {
-        "swing_high": max(highs),
-        "swing_low": min(lows)
-        }
-
