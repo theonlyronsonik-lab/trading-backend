@@ -1,23 +1,21 @@
 # liquidity.py
 
-def liquidity_sweep(candles):
+def liquidity_sweep(candles, structure_levels):
     """
-    Detect liquidity sweep:
-    - Price takes previous high/low
-    - Then closes back inside range
+    Detect liquidity sweep near support/resistance levels.
+    Returns True if sweep occurs, otherwise False.
     """
-    if not candles or len(candles) < 3:
-        return None
+    if not candles or not structure_levels:
+        return False
 
-    prev = candles[-2]
-    last = candles[-1]
+    last_candle = candles[-1]
+    support = structure_levels["support"]
+    resistance = structure_levels["resistance"]
 
-    # Buy-side liquidity sweep
-    if last["high"] > prev["high"] and last["close"] < prev["high"]:
-        return "buy_side"
+    # Check if candle touches or slightly breaks support/resistance
+    if last_candle['low'] <= support * 0.995:
+        return True  # liquidity taken below support
+    if last_candle['high'] >= resistance * 1.005:
+        return True  # liquidity taken above resistance
 
-    # Sell-side liquidity sweep
-    if last["low"] < prev["low"] and last["close"] > prev["low"]:
-        return "sell_side"
-
-    return None
+    return False
