@@ -1,56 +1,27 @@
-import time
-import requests
-from structure import get_structure_levels
-from liquidity import liquidity_sweep
-
-TELEGRAM_TOKEN = "YOUR_BOT_TOKEN"
-CHAT_ID = "YOUR_CHAT_ID"
-
-PAIR = "XAUUSD"
-HTF = "1H"
-LTF = "15M"
-
-def send_telegram(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": message
-    }
-    try:
-        requests.post(url, data=payload, timeout=10)
-        print("Telegram alert sent")
-    except Exception as e:
-        print("Telegram error:", e)
+from structure import detect_market_structure
 
 def run_bot():
-    send_telegram("🟢 XAUUSD Market Structure Bot is LIVE")
+    send_telegram("🟢 XAUUSD STRUCTURE BOT LIVE (H1 → M15)")
 
     while True:
         try:
-            structure = get_structure_levels(PAIR, HTF)
-            liquidity = liquidity_sweep(PAIR, LTF)
+            candles_htf = get_market_data("XAUUSD", "1H")
 
-            if structure and liquidity:
+            structure = detect_market_structure(candles_htf)
+
+            if structure and structure["bias"] != "Range":
                 message = f"""
-📊 XAUUSD STRUCTURE SIGNAL
+📊 XAUUSD MARKET STRUCTURE
 
-HTF: {HTF}
-LTF: {LTF}
-
-Structure:
-{structure}
-
-Liquidity:
-{liquidity}
+Bias: {structure['bias']}
+Event: {structure['BOS']}
+TF: 1H
 """
                 send_telegram(message)
 
-            time.sleep(300)  # 5 minutes
+            time.sleep(900)  # 15 minutes
 
         except Exception as e:
-            print("Runtime error:", e)
+            print("Error:", e)
             time.sleep(60)
-
-if __name__ == "__main__":
-    run_bot()
 
