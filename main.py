@@ -1,22 +1,20 @@
 import os
+import time
 import requests
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 def send_telegram(message):
-    if not BOT_TOKEN or not CHAT_ID:
-        print("❌ Telegram credentials missing")
-        return
-
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
     payload = {
         "chat_id": CHAT_ID,
         "text": message
     }
+    requests.post(url, json=payload)
 
-    r = requests.post(url, json=payload)
-
-    if r.status_code != 200:
-        print("❌ Telegram error:", r.text)
+if __name__ == "__main__":
+    send_telegram("✅ Trading bot is LIVE on Railway.\nAwaiting market conditions...")
+    
+    while True:
+        time.sleep(60)
