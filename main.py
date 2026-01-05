@@ -1,20 +1,17 @@
-import os
 import time
-import requests
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
-
-def send_telegram(message):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": message
-    }
-    requests.post(url, json=payload)
+from market_data import get_candles
+from telegram_bot import send_telegram
 
 if __name__ == "__main__":
-    send_telegram("✅ Trading bot is LIVE on Railway.\nAwaiting market conditions...")
-    
+    send_telegram("📡 Bot is LIVE. Testing market data feed for XAUUSD (H1)...")
+
+    candles = get_candles(symbol="XAUUSD", timeframe="1h", limit=50)
+
+    if candles:
+        send_telegram(f"📊 Market data OK: {len(candles)} H1 candles received.")
+    else:
+        send_telegram("❌ Market data FAILED. No candles received.")
+
+    # keep service alive
     while True:
-        time.sleep(60)
+        time.sleep(300)
