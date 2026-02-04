@@ -1,33 +1,47 @@
-from market_data import get_candles
-from structure import get_market_bias
-from telegram_bot import send_telegram
 import time
+import os
 
-TIMEFRAME_LABEL = "1H"
+from market import get_candles
+from structure import get_structure_bias
+from telegram_bot import send_telegram
+
 SYMBOL = "XAUUSD"
+TIMEFRAME = "15m"
+
+CHECK_INTERVAL = 60  # seconds
+
+last_bias = None  # stores previous bias
+
 
 def run():
-    send_telegram("✅ Trading bot LIVE\nAnalyzing HTF structure (1H)...")
+    global last_bias
+
+    send_telegram("✅ Trading bot is LIVE on Railway.\nAwaiting market conditions...")
 
     while True:
-        candles = get_candles()
+        candles = get_candles(SYMBOL, TIMEFRAME)
 
         if not candles:
-            send_telegram("❌ No market data received.")
-            time.sleep(300)
+            send_telegram("⚠️ Market data failed, no candles received.")
+            time.sleep(CHECK_INTERVAL)
             continue
 
-        bias = get_market_bias(candles)
+        bias = get_structure_bias(candles)
 
-        send_telegram(
-            f"📈 Market Structure Update\n"
-            f"Symbol: {SYMBOL}\n"
-            f"HTF: {TIMEFRAME_LABEL}\n"
-            f"Bias: {bias}"
-        )
+        if bias is None:
+            time.sleep(CHECK_INTERVAL)
+            continue
 
-        # HTF updates every 15 minutes is fine
-        time.sleep(900)
+        # ALERT ONLY ON CHANGE
+        if bias != last_bias:
+            message = (
+                f"📊 {SYMBOL} – {TIMEFRAME}\n"
+                f"🧠 Structure Bias: {bias.upper()}\n"
+            )
+            send_telegram(message)
+            last_bias = bias
+
+        time.sleep(CHECK_INTERVAL)
 
 
 if __name__ == "__main__":
