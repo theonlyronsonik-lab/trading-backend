@@ -1,37 +1,36 @@
-def detect_market_structure(candles):
-    """
-    candles: list of dicts with keys: open, high, low, close
-    Returns dict or None
-    """
+def get_swings(candles, lookback=3):
+    swing_highs = []
+    swing_lows = []
 
-    if len(candles) < 5:
-        return None
+    for i in range(lookback, len(candles) - lookback):
+        high = candles[i]["high"]
+        low = candles[i]["low"]
 
-    highs = [c["high"] for c in candles]
-    lows = [c["low"] for c in candles]
+        if high == max(c["high"] for c in candles[i-lookback:i+lookback+1]):
+            swing_highs.append((i, high))
 
-    last_high = highs[-1]
-    prev_high = max(highs[:-1])
+        if low == min(c["low"] for c in candles[i-lookback:i+lookback+1]):
+            swing_lows.append((i, low))
 
-    last_low = lows[-1]
-    prev_low = min(lows[:-1])
+    return swing_highs, swing_lows
 
-    if last_high > prev_high:
-        return {
-            "bias": "Bullish",
-            "BOS": "Bullish Break of Structure",
-            "level": prev_high
-        }
 
-    if last_low < prev_low:
-        return {
-            "bias": "Bearish",
-            "BOS": "Bearish Break of Structure",
-            "level": prev_low
-        }
+def get_market_bias(candles):
+    swing_highs, swing_lows = get_swings(candles)
 
-    return {
-        "bias": "Range",
-        "BOS": None,
-        "level": None
-    }
+    if len(swing_highs) < 2 or len(swing_lows) < 2:
+        return "NEUTRAL"
+
+    last_high = swing_highs[-1][1]
+    prev_high = swing_highs[-2][1]
+
+    last_low = swing_lows[-1][1]
+    prev_low = swing_lows[-2][1]
+
+    if last_high > prev_high and last_low > prev_low:
+        return "BULLISH"
+    elif last_high < prev_high and last_low < prev_low:
+        return "BEARISH"
+    else:
+        return "RANGING"
+
