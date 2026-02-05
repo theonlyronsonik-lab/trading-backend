@@ -1,36 +1,49 @@
-def get_swings(candles, lookback=3):
-    swing_highs = []
-    swing_lows = []
+import time
 
-    for i in range(lookback, len(candles) - lookback):
-        high = candles[i]["high"]
-        low = candles[i]["low"]
+from market_data import get_candles
+from structure import get_structure_bias
+from telegram_bot import send_telegram
 
-        if high == max(c["high"] for c in candles[i-lookback:i+lookback+1]):
-            swing_highs.append((i, high))
+SYMBOL = "XAUUSD"
+TIMEFRAME = "15m"
 
-        if low == min(c["low"] for c in candles[i-lookback:i+lookback+1]):
-            swing_lows.append((i, low))
-
-    return swing_highs, swing_lows
+CHECK_INTERVAL = 60  # seconds
+last_bias = None
 
 
-def get_market_bias(candles):
-    swing_highs, swing_lows = get_swings(candles)
+def run():
+    global last_bias
 
-    if len(swing_highs) < 2 or len(swing_lows) < 2:
-        return "NEUTRAL"
+    send_telegram(
+        "✅ Trading bot is LIVE on Railway.\n"
+        "📊 Symbol: XAUUSD\n"
+        "⏱ Timeframe: 15m\n"
+        "Awaiting market conditions..."
+    )
 
-    last_high = swing_highs[-1][1]
-    prev_high = swing_highs[-2][1]
+    while True:
+        candles = get_candles(SYMBOL, TIMEFRAME)
 
-    last_low = swing_lows[-1][1]
-    prev_low = swing_lows[-2][1]
+        if not candles:
+            send_telegram("⚠️ Market data failed, no candles received.")
+            time.sleep(CHECK_INTERVAL)
+            continue
 
-    if last_high > prev_high and last_low > prev_low:
-        return "BULLISH"
-    elif last_high < prev_high and last_low < prev_low:
-        return "BEARISH"
-    else:
-        return "RANGING"
+        bias = get_structure_bias(candles)
 
+        if bias is None:
+            time.sleep(CHECK_INTERVAL)
+            continue
+
+        if bias != last_bias:
+            send_telegram(
+                f"📊 {SYMBOL} – {TIMEFRAME}\n"
+                f"🧠 Structure Bias: {bias.upper()}"
+            )
+            last_bias = bias
+
+        time.sleep(CHECK_INTERVAL)
+
+
+if __name__ == "__main__":
+    run()
