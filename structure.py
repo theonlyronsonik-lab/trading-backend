@@ -1,51 +1,33 @@
-"""
-structure.py
-Market structure + BOS / CHoCH detection
-"""
+# structure.py
 
-def analyze_structure(candles):
+def get_structure_bias(candles):
     """
-    candles: list of OHLC dicts
-
-    Returns dict:
-    {
-        "bias": "BULLISH" | "BEARISH" | "RANGE",
-        "event": "BOS" | "CHOCH" | None
-    }
+    Determines market structure bias based on highs and lows
+    candles: list of dicts with 'high' and 'low'
     """
 
-    if not candles or len(candles) < 30:
-        return {"bias": "INSUFFICIENT_DATA", "event": None}
+    if len(candles) < 20:
+        return "NOT_ENOUGH_DATA"
 
     highs = [c["high"] for c in candles]
     lows = [c["low"] for c in candles]
 
-    # Swing structure
-    prev_high = max(highs[-20:-10])
-    prev_low = min(lows[-20:-10])
+    recent_highs = highs[-5:]
+    recent_lows = lows[-5:]
 
-    recent_high = max(highs[-10:])
-    recent_low = min(lows[-10:])
+    prev_highs = highs[-10:-5]
+    prev_lows = lows[-10:-5]
 
-    bias = "RANGE"
-    event = None
+    higher_high = max(recent_highs) > max(prev_highs)
+    higher_low = min(recent_lows) > min(prev_lows)
 
-    # Bullish BOS
-    if recent_high > prev_high and recent_low > prev_low:
-        bias = "BULLISH"
-        event = "BOS"
+    lower_high = max(recent_highs) < max(prev_highs)
+    lower_low = min(recent_lows) < min(prev_lows)
 
-    # Bearish BOS
-    elif recent_low < prev_low and recent_high < prev_high:
-        bias = "BEARISH"
-        event = "BOS"
+    if higher_high and higher_low:
+        return "BULLISH"
 
-    # CHoCH conditions
-    elif recent_high > prev_high and recent_low < prev_low:
-        bias = "RANGE"
-        event = "CHOCH"
+    if lower_high and lower_low:
+        return "BEARISH"
 
-    return {
-        "bias": bias,
-        "event": event
-    }
+    return "RANGE"
