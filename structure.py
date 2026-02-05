@@ -1,33 +1,22 @@
 # structure.py
 
 def get_structure_bias(candles):
-    """
-    Determines market structure bias based on highs and lows
-    candles: list of dicts with 'high' and 'low'
-    """
-
-    if len(candles) < 20:
-        return "NOT_ENOUGH_DATA"
+    if len(candles) < 30:
+        return "RANGE"
 
     highs = [c["high"] for c in candles]
     lows = [c["low"] for c in candles]
 
-    recent_highs = highs[-5:]
-    recent_lows = lows[-5:]
+    prev_high = max(highs[-30:-15])
+    prev_low = min(lows[-30:-15])
 
-    prev_highs = highs[-10:-5]
-    prev_lows = lows[-10:-5]
+    recent_high = max(highs[-15:])
+    recent_low = min(lows[-15:])
 
-    higher_high = max(recent_highs) > max(prev_highs)
-    higher_low = min(recent_lows) > min(prev_lows)
-
-    lower_high = max(recent_highs) < max(prev_highs)
-    lower_low = min(recent_lows) < min(prev_lows)
-
-    if higher_high and higher_low:
+    if recent_high > prev_high and recent_low > prev_low:
         return "BULLISH"
 
-    if lower_high and lower_low:
+    if recent_low < prev_low and recent_high < prev_high:
         return "BEARISH"
 
     return "RANGE"
