@@ -1,51 +1,26 @@
-import time
-
 from market_data import get_candles
-from structure import get_structure_bias
-from liquidity import liquidity_sweep 
+from structure import analyze_structure
+from liquidity import liquidity_sweep
 from telegram_bot import send_telegram
 
-SYMBOL = "XAUUSD"
-TIMEFRAME = "15m"
+def run_bot():
+    candles = get_candles("XAUUSD", "15m", limit=200)
 
-CHECK_INTERVAL = 60  # seconds
-last_bias = None
+    if not candles:
+        send_telegram("❌ Market data failed. No candles received.")
+        return
 
+    structure = analyze_structure(candles)
+    sweep = liquidity_sweep(candles)
 
-def run():
-    global last_bias
-
-    send_telegram(
-        "✅ Trading bot is LIVE on Railway.\n"
-        "📊 Symbol: XAUUSD\n"
-        "⏱ Timeframe: 15m\n"
-        "Awaiting market conditions..."
-    )
-
-    while True:
-        candles = get_candles(SYMBOL, TIMEFRAME)
-
-        if not candles:
-            send_telegram("⚠️ Market data failed, no candles received.")
-            time.sleep(CHECK_INTERVAL)
-            continue
-
-        bias = get_structure_bias(candles)
-
-        if bias is None:
-            time.sleep(CHECK_INTERVAL)
-            continue
-
-        if bias != last_bias:
-            send_telegram(
-                f"📊 {SYMBOL} – {TIMEFRAME}\n"
-                f"🧠 Structure Bias: {bias.upper()}"
-            )
-            last_bias = bias
-
-        time.sleep(CHECK_INTERVAL)
-
-
-if __name__ == "__main__":
-    run()
+    # Only alert on meaningful events
+    if structure["event"] and sweep:
+        message = (
+            f"📊 XAUUSD 15m\n"
+            f"Structure: {structure['bias']}\n"
+            f"Event: {structure['event']}\n"
+            f"Liquidity Sweep: ✅\n"
+            f"Awaiting entry confirmation..."
+        )
+        send_telegram(message)
 
