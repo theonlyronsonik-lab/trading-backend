@@ -1,7 +1,6 @@
 import time
-import os
 
-from market import get_candles
+from market_data import get_candles
 from structure import get_structure_bias
 from telegram_bot import send_telegram
 
@@ -9,14 +8,18 @@ SYMBOL = "XAUUSD"
 TIMEFRAME = "15m"
 
 CHECK_INTERVAL = 60  # seconds
-
-last_bias = None  # stores previous bias
+last_bias = None
 
 
 def run():
     global last_bias
 
-    send_telegram("✅ Trading bot is LIVE on Railway.\nAwaiting market conditions...")
+    send_telegram(
+        "✅ Trading bot is LIVE on Railway.\n"
+        "📊 Symbol: XAUUSD\n"
+        "⏱ Timeframe: 15m\n"
+        "Awaiting market conditions..."
+    )
 
     while True:
         candles = get_candles(SYMBOL, TIMEFRAME)
@@ -32,13 +35,11 @@ def run():
             time.sleep(CHECK_INTERVAL)
             continue
 
-        # ALERT ONLY ON CHANGE
         if bias != last_bias:
-            message = (
+            send_telegram(
                 f"📊 {SYMBOL} – {TIMEFRAME}\n"
-                f"🧠 Structure Bias: {bias.upper()}\n"
+                f"🧠 Structure Bias: {bias.upper()}"
             )
-            send_telegram(message)
             last_bias = bias
 
         time.sleep(CHECK_INTERVAL)
@@ -46,3 +47,4 @@ def run():
 
 if __name__ == "__main__":
     run()
+
