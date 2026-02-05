@@ -2,6 +2,7 @@ import time
 
 from market_data import get_candles
 from structure import get_structure_bias
+from liquidity import liquidity_sweep 
 from telegram_bot import send_telegram
 
 SYMBOL = "XAUUSD"
