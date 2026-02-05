@@ -1,32 +1,14 @@
-import os
-import requests
+def get_structure_bias(candles):
+    if len(candles) < 10:
+        return None
 
-API_KEY = os.getenv("TWELVEDATA_API_KEY")
-SYMBOL = os.getenv("SYMBOL", "XAU/USD")
-TIMEFRAME = os.getenv("TIMEFRAME", "15min")
+    highs = [c["high"] for c in candles]
+    lows = [c["low"] for c in candles]
 
-def get_candles():
-    url = "https://api.twelvedata.com/time_series"
-    params = {
-        "symbol": SYMBOL,
-        "interval": TIMEFRAME,
-        "outputsize": 200,
-        "apikey": API_KEY
-    }
+    if highs[-1] > highs[-2] and lows[-1] > lows[-2]:
+        return "bullish"
 
-    response = requests.get(url, params=params)
-    data = response.json()
+    if highs[-1] < highs[-2] and lows[-1] < lows[-2]:
+        return "bearish"
 
-    if "values" not in data:
-        return []
-
-    candles = []
-    for c in reversed(data["values"]):
-        candles.append({
-            "open": float(c["open"]),
-            "high": float(c["high"]),
-            "low": float(c["low"]),
-            "close": float(c["close"])
-        })
-
-    return candles
+    return None
