@@ -1,53 +1,36 @@
-from market_data import get_candles
-from structure import analyze_structure
-from liquidity import liquidity_sweep
-from entries import find_fvg, candle_confirmation
-from sessions import in_trading_session
-from risk import calculate_position
+# main.py
+
+import time
+from market_data import fetch_candles
+from structure import get_structure_bias
 from telegram_bot import send_telegram
+from config import SYMBOL, TIMEFRAME
 
+def run():
+    send_telegram("✅ Trading bot is LIVE on Railway.\nAwaiting market conditions...")
 
-def run_bot():
-    if not in_trading_session():
-        return
+    last_bias = None
 
-    candles = get_candles("XAUUSD", "15m", limit=200)
+    while True:
+        candles = fetch_candles()
 
-    if not candles:
-        return
+        if not candles:
+            send_telegram("⚠️ Market data failed. No candles received.")
+            time.sleep(300)
+            continue
 
-    structure = analyze_structure(candles)
+        bias = get_structure_bias(candles)
 
-    if not structure["event"]:
-        return
+        if bias != last_bias:
+            send_telegram(
+                f"📊 MARKET STRUCTURE UPDATE\n"
+                f"Symbol: {SYMBOL}\n"
+                f"Timeframe: {TIMEFRAME}\n"
+                f"Bias: {bias}"
+            )
+            last_bias = bias
 
-    if not liquidity_sweep(candles):
-        return
+        time.sleep(300)  # 5 minutes
 
-    fvg = find_fvg(candles, structure["bias"])
-    confirmation = candle_confirmation(candles[-1], structure["bias"])
-
-    if not fvg or not confirmation:
-        return
-
-    entry = candles[-1]["close"]
-    stop = candles[-1]["low"] if structure["bias"] == "BULLISH" else candles[-1]["high"]
-
-    risk = calculate_position(entry, stop)
-
-    message = (
-        f"🔥 XAUUSD 15m TRADE SETUP\n\n"
-        f"Structure: {structure['bias']}\n"
-        f"Event: {structure['event']}\n"
-        f"Liquidity: ✅\n"
-        f"Entry Model: FVG + Confirmation\n\n"
-        f"Entry: {entry}\n"
-        f"Stop: {stop}\n"
-        f"TP: {risk['tp']}\n"
-        f"RR: {risk['rr']}\n"
-        f"Lot Size (est): {risk['lot_size']}"
-    )
-
-    send_telegram(message)
-
-
+if __name__ == "__main__":
+    run()
