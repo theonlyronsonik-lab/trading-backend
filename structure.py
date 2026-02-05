@@ -1,45 +1,51 @@
 """
 structure.py
-Handles market structure bias detection.
-No circular imports. No side effects.
+Market structure + BOS / CHoCH detection
 """
 
-def get_structure_bias(candles):
+def analyze_structure(candles):
     """
-    Determines market structure bias based on highs and lows.
+    candles: list of OHLC dicts
 
-    candles: list of dicts with keys:
-        - open
-        - high
-        - low
-        - close
-
-    Returns:
-        "BULLISH", "BEARISH", or "RANGE"
+    Returns dict:
+    {
+        "bias": "BULLISH" | "BEARISH" | "RANGE",
+        "event": "BOS" | "CHOCH" | None
+    }
     """
 
-    # Safety check
-    if not candles or len(candles) < 20:
-        return "INSUFFICIENT_DATA"
+    if not candles or len(candles) < 30:
+        return {"bias": "INSUFFICIENT_DATA", "event": None}
 
     highs = [c["high"] for c in candles]
     lows = [c["low"] for c in candles]
 
-    # Recent structure
-    recent_highs = highs[-5:]
-    recent_lows = lows[-5:]
+    # Swing structure
+    prev_high = max(highs[-20:-10])
+    prev_low = min(lows[-20:-10])
 
-    prev_highs = highs[-10:-5]
-    prev_lows = lows[-10:-5]
+    recent_high = max(highs[-10:])
+    recent_low = min(lows[-10:])
 
-    # Higher High + Higher Low → Bullish
-    if max(recent_highs) > max(prev_highs) and min(recent_lows) > min(prev_lows):
-        return "BULLISH"
+    bias = "RANGE"
+    event = None
 
-    # Lower High + Lower Low → Bearish
-    if max(recent_highs) < max(prev_highs) and min(recent_lows) < min(prev_lows):
-        return "BEARISH"
+    # Bullish BOS
+    if recent_high > prev_high and recent_low > prev_low:
+        bias = "BULLISH"
+        event = "BOS"
 
-    # Otherwise → Range / Chop
-    return "RANGE"
+    # Bearish BOS
+    elif recent_low < prev_low and recent_high < prev_high:
+        bias = "BEARISH"
+        event = "BOS"
 
+    # CHoCH conditions
+    elif recent_high > prev_high and recent_low < prev_low:
+        bias = "RANGE"
+        event = "CHOCH"
+
+    return {
+        "bias": bias,
+        "event": event
+    }
