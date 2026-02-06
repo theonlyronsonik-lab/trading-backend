@@ -33,18 +33,18 @@ def analyze_symbol(symbol):
         return
 
     # 3️⃣ Telegram Alert
-   message = (
-    "🚨 TRADE SETUP FOUND\n\n"
-    f"Symbol: {symbol}\n"
-    f"Bias ({HTF}): {bias}\n"
-    f"Entry TF: {LTF}\n\n"
-    f"📍 Entry Zone: {entry['zone'][0]} → {entry['zone'][1]}\n"
-    f"🛑 Stop Loss: {entry['sl']}\n"
-    f"🎯 Take Profit: {entry['tp']}\n\n"
-    "⚠️ Wait for price to react inside the zone.\n"
-    "No FOMO. No market orders."
-)
- 
+    message = (
+        "🚨 TRADE SETUP FOUND\n\n"
+        f"Symbol: {symbol}\n"
+        f"Bias ({HTF}): {bias}\n"
+        f"Entry TF: {LTF}\n\n"
+        f"📍 Entry Zone: {entry['zone'][0]} → {entry['zone'][1]}\n"
+        f"🛑 Stop Loss: {entry['sl']}\n"
+        f"🎯 Take Profit: {entry['tp']}\n\n"
+        "⚠️ Wait for price to react inside the zone.\n"
+        "No FOMO. No market orders."
+    )
+
     send_telegram(message)
 
 
