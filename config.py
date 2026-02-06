@@ -13,10 +13,10 @@ SYMBOLS = [
 ]
 
 # ===== TIMEFRAMES =====
-HTF = "60m"      # Higher Timeframe for structure bias (1H)
-LTF = "15m"     # Lower Timeframe for entry confirmations (15m)
+HTF = "1h"       # NOT 60m
+LTF = "15min"    # or "5min" if you want faster entries
 
-CANDLE_LIMIT = 200  # Number of candles to fetch
+CANDLE_LIMIT = 200
 
 # ===== TELEGRAM =====
 TELEGRAM_BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
