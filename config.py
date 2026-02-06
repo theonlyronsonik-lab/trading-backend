@@ -5,10 +5,10 @@ MARKET_API_KEY = "YOUR_API_KEY"
 
 # ===== SYMBOLS (PAIRS TO ANALYZE) =====
 SYMBOLS = [
-    "XAUUSD",  # Gold
-    "EURUSD",  # Euro / USD
-    "GBPUSD",  # GBP / USD
-    "USDJPY",  # USD / JPY
+    "XAU/USD",  # Gold
+    "EUR/USD",  # Euro / USD
+    "GBP/USD",  # GBP / USD
+    "USD/JPY",  # USD / JPY
     # Add more pairs here
 ]
 
