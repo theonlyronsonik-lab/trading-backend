@@ -1,32 +1,51 @@
 import time
+from config import (
+    SYMBOLS,
+    HTF,
+    LTF,
+    CANDLE_LIMIT,
+    COOLDOWN_SECONDS,
+    BOT_NAME,
+)
 from market_data import fetch_candles
 from structure import get_structure_bias
 from entry import confirm_entry
 from telegram_bot import send_telegram
-from config import SYMBOLS, HTF, LTF, RISK_REWARD, COOLDOWN_SECONDS, BOT_NAME
 
-def run_bot():
-    for symbol in SYMBOLS:
-        try:
-            print(f"Fetching {symbol} candles...")
-            candles = fetch_candles(symbol, HTF, CANDLE_LIMIT)
-            if candles:
-                print(f"{symbol} candles received: {len(candles)}")
 
-                # Check structure bias
-                bias = get_structure_bias(symbol, candles)
-                if bias:
-                    print(f"{symbol} structure bias: {bias}")
-                    entry = confirm_entry(symbol, bias)
-                    if entry:
-                        message = f"{symbol} entry confirmed with bias: {bias} at {entry['price']}"
-                        send_telegram(message)
+def analyze_symbol(symbol):
+    # 1️⃣ Higher timeframe structure
+    htf_candles = fetch_candles(symbol, HTF, CANDLE_LIMIT)
+    if not htf_candles:
+        return
 
-            time.sleep(COOLDOWN_SECONDS)
+    bias = get_structure_bias(htf_candles)
+    if bias == "RANGE":
+        return
 
-        except Exception as e:
-            print(f"Error processing {symbol}: {str(e)}")
+    # 2️⃣ Lower timeframe entry
+    ltf_candles = fetch_candles(symbol, LTF, CANDLE_LIMIT)
+    if not ltf_candles:
+        return
 
-if __name__ == "__main__":
-    run_bot()
+    entry = confirm_entry(bias, ltf_candles)
+    if not entry:
+        return
+
+    # 3️⃣ Send alert
+    message = (
+        f"🚨 SETUP FOUND\n"
+        f"Symbol: {symbol}\n"
+        f"Bias ({HTF}): {bias}\n"
+        f"Entry TF: {LTF}\n"
+        f"Entry Type: {entry}"
+    )
+    send_telegram(message)
+
+
+def run():
+    send_telegram(
+        f"✅ {BOT_NAME} LIVE\n"
+        f"Pairs: {', '.join(SYMBOLS)}\n"
+        f"HTF: {HTF} → LTF:
 
