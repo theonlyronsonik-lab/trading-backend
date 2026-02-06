@@ -1,7 +1,7 @@
 # config.py
 
 # ===== MARKET API =====
-MARKET_API_KEY = "YOUR_API_KEY"
+MARKET_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 
 # ===== SYMBOLS (PAIRS TO ANALYZE) =====
 SYMBOLS = [
