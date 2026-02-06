@@ -19,8 +19,8 @@ LTF = "15m"     # Lower Timeframe for entry confirmations (15m)
 CANDLE_LIMIT = 200  # Number of candles to fetch
 
 # ===== TELEGRAM =====
-TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN"
-TELEGRAM_CHAT_ID = "YOUR_CHAT_ID"
+TELEGRAM_BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
+TELEGRAM_CHAT_ID = "6599172354"
 BOT_NAME = "Multi-Analyzer Bot"
 
 # ===== RISK & SETTINGS =====
