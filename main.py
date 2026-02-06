@@ -1,54 +1,53 @@
 # main.py
 
 import time
-from config import SYMBOL, TIMEFRAME, RISK_REWARD, COOLDOWN_SECONDS
+import threading
+from config import SYMBOLS, HTF, LTF, RISK_REWARD, COOLDOWN_SECONDS
 from market_data import fetch_candles
 from structure import get_structure_bias
-from liquidity import detect_liquidity_sweep
 from entry import confirm_entry
-from risk import calculate_levels
 from telegram_bot import send_telegram
 
+def analyze_symbol(symbol):
+    """Analyze a single symbol and send alert if setup is found."""
+    # Fetch HTF (Higher Timeframe) candles
+    htf_candles = fetch_candles(symbol, HTF)
+    if not htf_candles:
+        return
+
+    # Get structure bias from HTF
+    bias = get_structure_bias(htf_candles)
+    if bias == "NEUTRAL":
+        return  # No setup if neutral bias
+
+    # Fetch LTF (Lower Timeframe) candles for entry confirmation
+    ltf_candles = fetch_candles(symbol, LTF)
+    if not ltf_candles:
+        return
+
+    # Confirm entry based on structure and LTF candles
+    entry_signal = confirm_entry(bias, ltf_candles)
+    if entry_signal:
+        send_telegram(f"🚨 {symbol} Setup Found!\nBias: {bias} on {HTF} & entry confirmed on {LTF}.")
+    
 def run():
-    send_telegram(
-        f"✅ BOT LIVE\n"
-        f"Symbol: {SYMBOL}\n"
-        f"TF: {TIMEFRAME}\n"
-        f"Waiting for setup..."
-    )
-
-    last_signal = None
-
+    send_telegram("✅ Multi-Analyzer Bot LIVE\nReady to analyze: " + ", ".join(SYMBOLS))
+    
     while True:
-        candles = fetch_candles()
+        # Run analysis for all symbols simultaneously (in parallel)
+        threads = []
+        for symbol in SYMBOLS:
+            thread = threading.Thread(target=analyze_symbol, args=(symbol,))
+            threads.append(thread)
+            thread.start()
+        
+        # Wait for all threads to finish
+        for thread in threads:
+            thread.join()
 
-        if not candles:
-            time.sleep(COOLDOWN_SECONDS)
-            continue
-
-        bias = get_structure_bias(candles)
-        liquidity = detect_liquidity_sweep(candles)
-        entry = confirm_entry(bias, liquidity)
-
-        if entry and entry != last_signal:
-            levels = calculate_levels(candles, entry, RISK_REWARD)
-
-            if levels:
-                send_telegram(
-                    f"📊 TRADE SETUP\n"
-                    f"{SYMBOL} | {TIMEFRAME}\n\n"
-                    f"Bias: {bias}\n"
-                    f"Liquidity: {liquidity}\n\n"
-                    f"Direction: {entry}\n"
-                    f"Entry: {levels['entry']}\n"
-                    f"SL: {levels['sl']}\n"
-                    f"TP: {levels['tp']}"
-                )
-
-                last_signal = entry
-
+        # Wait for the next cycle
+        print("Sleeping for", COOLDOWN_SECONDS, "seconds.")
         time.sleep(COOLDOWN_SECONDS)
 
 if __name__ == "__main__":
     run()
-
