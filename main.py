@@ -14,7 +14,7 @@ from telegram_bot import send_telegram
 
 
 def analyze_symbol(symbol):
-    # 1️⃣ Higher timeframe structure
+    # 1️⃣ Higher Timeframe Structure
     htf_candles = fetch_candles(symbol, HTF, CANDLE_LIMIT)
     if not htf_candles:
         return
@@ -23,7 +23,7 @@ def analyze_symbol(symbol):
     if bias == "RANGE":
         return
 
-    # 2️⃣ Lower timeframe entry
+    # 2️⃣ Lower Timeframe Entry
     ltf_candles = fetch_candles(symbol, LTF, CANDLE_LIMIT)
     if not ltf_candles:
         return
@@ -32,20 +32,34 @@ def analyze_symbol(symbol):
     if not entry:
         return
 
-    # 3️⃣ Send alert
+    # 3️⃣ Telegram Alert
     message = (
-        f"🚨 SETUP FOUND\n"
+        "🚨 SETUP FOUND\n"
         f"Symbol: {symbol}\n"
         f"Bias ({HTF}): {bias}\n"
         f"Entry TF: {LTF}\n"
-        f"Entry Type: {entry}"
+        f"Entry: {entry}"
     )
     send_telegram(message)
 
 
 def run():
     send_telegram(
-        f"✅ {BOT_NAME} LIVE\n"
+        "✅ BOT STARTED\n"
+        f"Name: {BOT_NAME}\n"
         f"Pairs: {', '.join(SYMBOLS)}\n"
-        f"HTF: {HTF} → LTF:
+        f"HTF → LTF: {HTF} → {LTF}"
+    )
 
+    while True:
+        for symbol in SYMBOLS:
+            try:
+                analyze_symbol(symbol)
+            except Exception as e:
+                print(f"Error processing {symbol}: {e}")
+
+        time.sleep(COOLDOWN_SECONDS)
+
+
+if name == "main":
+    run()
