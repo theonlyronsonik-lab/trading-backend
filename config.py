@@ -1,19 +1,28 @@
 # config.py
 
 # ===== MARKET API =====
-MARKET_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
+MARKET_API_KEY = "YOUR_API_KEY"
 
-# ===== MARKET SETTINGS =====
-SYMBOL = "XAUUSD"
-TIMEFRAME = "15m"
-CANDLE_LIMIT = 200
+# ===== SYMBOLS (PAIRS TO ANALYZE) =====
+SYMBOLS = [
+    "XAUUSD",  # Gold
+    "EURUSD",  # Euro / USD
+    "GBPUSD",  # GBP / USD
+    "USDJPY",  # USD / JPY
+    # Add more pairs here
+]
 
-# ===== RISK SETTINGS =====
-RISK_REWARD = 2
-COOLDOWN_SECONDS = 300
+# ===== TIMEFRAMES =====
+HTF = "1h"      # Higher Timeframe for structure bias (1H)
+LTF = "15m"     # Lower Timeframe for entry confirmations (15m)
+
+CANDLE_LIMIT = 200  # Number of candles to fetch
 
 # ===== TELEGRAM =====
-BOT_NAME = "XAUUSD SMC BOT"
-TELEGRAM_BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
-TELEGRAM_CHAT_ID = "6599172354"
+TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN"
+TELEGRAM_CHAT_ID = "YOUR_CHAT_ID"
+BOT_NAME = "Multi-Analyzer Bot"
 
+# ===== RISK & SETTINGS =====
+RISK_REWARD = 2  # Reward to risk ratio
+COOLDOWN_SECONDS = 300  # Time between checks for each symbol (5 minutes)
