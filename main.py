@@ -27,5 +27,6 @@ def run_bot():
         except Exception as e:
             print(f"Error processing {symbol}: {str(e)}")
 
-if name == "main":
+if __name__ == "__main__":
     run_bot()
+
