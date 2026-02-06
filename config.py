@@ -13,7 +13,7 @@ SYMBOLS = [
 ]
 
 # ===== TIMEFRAMES =====
-HTF = "4h"       # NOT 60m
+HTF = "1h"       # NOT 60m
 LTF = "15min"    # or "5min" if you want faster entries
 
 CANDLE_LIMIT = 200
