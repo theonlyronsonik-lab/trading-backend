@@ -24,5 +24,5 @@ TELEGRAM_CHAT_ID = "6599172354"
 BOT_NAME = "Multi-Analyzer Bot"
 
 # ===== RISK & SETTINGS =====
-RISK_REWARD = 2  # Reward to risk ratio
+RISK_REWARD = 7  # Reward to risk ratio
 COOLDOWN_SECONDS = 300  # Time between checks for each symbol (5 minutes)
