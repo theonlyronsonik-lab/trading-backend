@@ -5,11 +5,11 @@ MARKET_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 
 # ===== SYMBOLS (PAIRS TO ANALYZE) =====
 SYMBOLS = [
-    "XAU/USD",  # Gold
-    "EUR/USD",  # Euro / USD
-    "GBP/USD",  # GBP / USD
-    "USD/JPY",  # USD / JPY
-    "BTC/USD",  # BTC / USD
+    "XAUUSD",  # Gold
+    "EURUSD",  # Euro / USD
+    "GBPUSD",  # GBP / USD
+    "USDJPY",  # USD / JPY
+    "BTCUSD",  # BTC / USD
     # Add more pairs here
 ]
 
