@@ -1,30 +1,23 @@
 import requests
-from config import MARKET_API_KEY
 
+API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 
-def fetch_candles(symbol, interval, limit):
+def fetch_candles(symbol, interval):
     url = "https://api.twelvedata.com/time_series"
-
     params = {
         "symbol": symbol,
         "interval": interval,
-        "apikey": MARKET_API_KEY,
-        "limit": limit,
-        "format": "JSON",
-
+        "outputsize": CANDLE_LIMIT,
+        "apikey": API_KEY,
     }
 
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
+    response = requests.get(url, params=params)
+    data = response.json()
 
-        if "values" not in data or not data["values"]:
-            print(f"No candle data for {symbol} ({interval})")
-            print(f"Response: {data}")
-            return None
-
-        return data["values"]
-
-    except Exception as e:
-        print(f"Market data error for {symbol}: {e}")
+    # 🚨 STOP if API limit reached
+    if response.status_code == 429 or data.get("status") == "error":
+        print(f"❌ API issue for {symbol} ({interval})")
+        print("Response:", data)
         return None
+
+    return data.get("values", [])
