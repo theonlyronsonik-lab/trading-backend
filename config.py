@@ -9,6 +9,7 @@ SYMBOLS = [
     "EUR/USD",  # Euro / USD
     "GBP/USD",  # GBP / USD
     "USD/JPY",  # USD / JPY
+    "BTC/USD",  # BTC / USD
     # Add more pairs here
 ]
 
