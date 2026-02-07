@@ -64,7 +64,17 @@ def run():
                 print(f"Error processing {symbol}: {e}")
 
         time.sleep(COOLDOWN_SECONDS)
+    HTF_CACHE = {def get_htf_data(symbol):
+    key = f"{symbol}_{HTF_INTERVAL}"
 
+    if key in HTF_CACHE:
+        return HTF_CACHE[key]
+
+    candles = fetch_candles(symbol, HTF_INTERVAL)
+    if candles:
+        HTF_CACHE[key] = candles
+
+    return candles}
 
 if __name__ == "__main__":
     run()
