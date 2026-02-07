@@ -1,70 +1,75 @@
 import time
+
 from config import (
     SYMBOLS,
-    HTF,
-    LTF,
-    CANDLE_LIMIT,
-    COOLDOWN_SECONDS,
-    BOT_NAME,
+    HTF_INTERVAL,
+    LTF_INTERVAL,
+    SCAN_INTERVAL_SECONDS
 )
+
 from market_data import fetch_candles
 from structure import get_structure_bias
-from entry import confirm_entry
+from liquidity import detect_supply_demand, price_in_zone
 from telegram_bot import send_telegram
+
+SENT_ALERTS = set()
 
 
 def analyze_symbol(symbol):
-    # 1️⃣ Higher Timeframe Structure
-    htf_candles = fetch_candles(symbol, HTF, CANDLE_LIMIT)
+    print(f"🔍 Analyzing {symbol}")
+
+    htf_candles = fetch_candles(symbol, HTF_INTERVAL)
     if not htf_candles:
         return
 
     bias = get_structure_bias(htf_candles)
-    if bias == "RANGE":
+    if bias not in ["bullish", "bearish"]:
         return
 
-    # 2️⃣ Lower Timeframe Entry
-    ltf_candles = fetch_candles(symbol, LTF, CANDLE_LIMIT)
+    zones = detect_supply_demand(htf_candles)
+    if not zones:
+        return
+
+    ltf_candles = fetch_candles(symbol, LTF_INTERVAL)
     if not ltf_candles:
         return
 
-    entry = confirm_entry(bias, ltf_candles)
-    if not entry:
-        return
+    price = float(ltf_candles[-1]["close"])
 
-    # 3️⃣ Telegram Alert
-    message = (
-        "🚨 TRADE SETUP FOUND\n\n"
-        f"Symbol: {symbol}\n"
-        f"Bias ({HTF}): {bias}\n"
-        f"Entry TF: {LTF}\n\n"
-        f"📍 Entry Zone: {entry['zone'][0]} → {entry['zone'][1]}\n"
-        f"🛑 Stop Loss: {entry['sl']}\n"
-        f"🎯 Take Profit: {entry['tp']}\n\n"
-        "⚠️ Wait for price to react inside the zone.\n"
-        "No FOMO. No market orders."
-    )
+    for zone in zones:
+        if bias == "bullish" and zone["type"] != "demand":
+            continue
 
-    send_telegram(message)
+        if bias == "bearish" and zone["type"] != "supply":
+            continue
+
+        if price_in_zone(price, zone):
+            alert_id = f"{symbol}_{zone['type']}_{zone['low']}_{zone['high']}"
+
+            if alert_id in SENT_ALERTS:
+                continue
+
+            message = (
+                f"📊 <b>{symbol}</b>\n"
+                f"HTF Bias: <b>{bias.upper()}</b>\n"
+                f"Zone: <b>{zone['type'].upper()}</b>\n"
+                f"Entry Area: {zone['low']} – {zone['high']}\n"
+                f"TFs: {HTF_INTERVAL} → {LTF_INTERVAL}"
+            )
+
+            send_telegram(message)
+            SENT_ALERTS.add(alert_id)
 
 
-def run():
-    send_telegram(
-        "✅ BOT STARTED\n"
-        f"Name: {BOT_NAME}\n"
-        f"Pairs: {', '.join(SYMBOLS)}\n"
-        f"HTF → LTF: {HTF} → {LTF}"
-    )
+def run_bot():
+    send_telegram("✅ Trading bot LIVE. Scanning markets...")
 
     while True:
         for symbol in SYMBOLS:
-            try:
-                analyze_symbol(symbol)
-            except Exception as e:
-                print(f"Error processing {symbol}: {e}")
+            analyze_symbol(symbol)
 
-        time.sleep(COOLDOWN_SECONDS)
-    
+        time.sleep(SCAN_INTERVAL_SECONDS)
+
 
 if __name__ == "__main__":
-    run()
+    run_bot()
