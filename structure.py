@@ -1,14 +1,14 @@
-# structure.py
-
 def get_structure_bias(candles):
-    """Simple logic to define market structure bias"""
-    # Here, add your logic for higher timeframe analysis.
-    # For simplicity, let's say the market is in a bullish bias if the close is higher than open.
-    
-    if candles[-1]['close'] > candles[-1]['open']:  # Just an example for bullish
-        return "BULLISH"
-    elif candles[-1]['close'] < candles[-1]['open']:
-        return "BEARISH"
-    else:
-        return "NEUTRAL"
+    if len(candles) < 20:
+        return None
 
+    highs = [float(c["high"]) for c in candles[-20:]]
+    lows = [float(c["low"]) for c in candles[-20:]]
+
+    if highs[-1] > highs[0] and lows[-1] > lows[0]:
+        return "bullish"
+
+    if highs[-1] < highs[0] and lows[-1] < lows[0]:
+        return "bearish"
+
+    return "range"
