@@ -1,29 +1,23 @@
-# config.py
+# ===== API KEYS =====
+TWELVE_DATA_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 
-# ===== MARKET API =====
-MARKET_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
-
-# ===== SYMBOLS (PAIRS TO ANALYZE) =====
-SYMBOLS = [
-    "XAUUSD",  # Gold
-    "EURUSD",  # Euro / USD
-    "GBPUSD",  # GBP / USD
-    "USDJPY",  # USD / JPY
-    "BTCUSD",  # BTC / USD
-    # Add more pairs here
-]
-
-# ===== TIMEFRAMES =====
-HTF = "4h"       # NOT 60m
-LTF = "15min"    # or "5min" if you want faster entries
-
-CANDLE_LIMIT = 200
-
-# ===== TELEGRAM =====
 TELEGRAM_BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
 TELEGRAM_CHAT_ID = "6599172354"
-BOT_NAME = "Multi-Analyzer Bot"
 
-# ===== RISK & SETTINGS =====
-RISK_REWARD = 7  # Reward to risk ratio
-COOLDOWN_SECONDS = 300  # Time between checks for each symbol (5 minutes)
+# ===== SYMBOLS TO ANALYSE =====
+SYMBOLS = [
+    "EUR/USD",
+    "GBP/USD",
+    "USD/JPY",
+    "XAU/USD"
+]
+
+# ===== TIMEFRAMES (TwelveData format) =====
+HTF_INTERVAL = "4h"
+LTF_INTERVAL = "15min"
+
+# ===== DATA SETTINGS =====
+CANDLE_LIMIT = 200
+
+# ===== LOOP SETTINGS =====
+SCAN_INTERVAL_SECONDS = 900  # 15 minutes
