@@ -1,23 +1,28 @@
 import requests
+from config import TWELVE_DATA_API_KEY, CANDLE_LIMIT
 
-API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
+BASE_URL = "https://api.twelvedata.com/time_series"
 
-def fetch_candles(symbol, interval):
-    url = "https://api.twelvedata.com/time_series"
+
+def fetch_candles(symbol: str, interval: str):
     params = {
         "symbol": symbol,
         "interval": interval,
         "outputsize": CANDLE_LIMIT,
-        "apikey": API_KEY,
+        "apikey": TWELVE_DATA_API_KEY,
     }
 
-    response = requests.get(url, params=params)
+    response = requests.get(BASE_URL, params=params)
     data = response.json()
 
-    # 🚨 STOP if API limit reached
-    if response.status_code == 429 or data.get("status") == "error":
-        print(f"❌ API issue for {symbol} ({interval})")
+    if data.get("status") == "error":
+        print(f"No candle data for {symbol} ({interval})")
         print("Response:", data)
         return None
 
-    return data.get("values", [])
+    candles = data.get("values")
+    if not candles:
+        return None
+
+    candles.reverse()  # oldest → newest
+    return candles
