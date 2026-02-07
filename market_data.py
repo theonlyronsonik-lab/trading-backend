@@ -12,10 +12,6 @@ def fetch_candles(symbol, interval, limit):
         "limit": limit,
         "format": "JSON",
 
-        if response.status_code == 429:
-    print("❌ API limit reached. Stopping further requests.")
-    return None
-
     }
 
     try:
