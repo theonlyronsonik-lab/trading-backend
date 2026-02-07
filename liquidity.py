@@ -1,19 +1,37 @@
-# liquidity.py
+def detect_supply_demand(candles):
+    zones = []
 
-def detect_liquidity_sweep(candles):
-    if len(candles) < 20:
-        return None
+    for i in range(2, len(candles) - 2):
+        prev = candles[i - 1]
+        curr = candles[i]
+        next_ = candles[i + 1]
 
-    prev = candles[-10:-5]
-    last = candles[-1]
+        # SUPPLY ZONE
+        if (
+            float(prev["close"]) > float(prev["open"]) and
+            float(curr["close"]) < float(curr["open"]) and
+            float(next_["close"]) < float(next_["open"])
+        ):
+            zones.append({
+                "type": "supply",
+                "high": float(curr["high"]),
+                "low": float(curr["low"])
+            })
 
-    prev_high = max(c["high"] for c in prev)
-    prev_low = min(c["low"] for c in prev)
+        # DEMAND ZONE
+        if (
+            float(prev["close"]) < float(prev["open"]) and
+            float(curr["close"]) > float(curr["open"]) and
+            float(next_["close"]) > float(next_["open"])
+        ):
+            zones.append({
+                "type": "demand",
+                "high": float(curr["high"]),
+                "low": float(curr["low"])
+            })
 
-    if last["high"] > prev_high and last["close"] < prev_high:
-        return "BUY_SIDE"
+    return zones
 
-    if last["low"] < prev_low and last["close"] > prev_low:
-        return "SELL_SIDE"
 
-    return None
+def price_in_zone(price, zone):
+    return zone["low"] <= price <= zone["high"]
