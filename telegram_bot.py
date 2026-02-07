@@ -8,12 +8,10 @@ def send_telegram(message: str):
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "HTML",
+        "parse_mode": "HTML"
     }
 
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        if response.status_code != 200:
-            print(f"Telegram error: {response.text}")
-    except Exception as e:
-        print(f"Telegram exception: {e}")
+    response = requests.post(url, data=payload)
+
+    if response.status_code != 200:
+        print("Telegram error:", response.text)
