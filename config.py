@@ -13,8 +13,8 @@ SYMBOLS = [
 ]
 
 # ===== TIMEFRAMES (TwelveData format) =====
-HTF_INTERVAL = "4h"
-LTF_INTERVAL = "15min"
+HTF = "4h"
+LTF = "15min"
 
 SLEEP_SECONDS = 300
 
