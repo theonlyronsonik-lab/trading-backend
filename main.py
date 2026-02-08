@@ -1,16 +1,11 @@
-import time
-
-from config import (
-    SYMBOLS,
-    HTF_INTERVAL,
-    LTF_INTERVAL,
-    SCAN_INTERVAL_SECONDS
-)
-
 from market_data import fetch_candles
 from structure import get_structure_bias
-from liquidity import detect_supply_demand, price_in_zone
+from zones import get_supply_demand_zones
+from entry import confirm_entry
+from risk import calculate_sl_tp
 from telegram_bot import send_telegram
+from config import SYMBOLS, HTF, LTF, SLEEP_SECONDS
+
 
 SENT_ALERTS = set()
 
