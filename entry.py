@@ -1,44 +1,17 @@
-def confirm_entry(bias, candles):
+def confirm_entry(bias, entry_price, sl, tp):
     """
-    candles: LTF candles (most recent first or last — we handle both)
-    returns dict with entry zone, SL, TP
+    Returns True only if RR >= 1:3
     """
 
-    # Ensure candles are ordered oldest → newest
-    candles = list(reversed(candles))
+    risk = abs(entry_price - sl)
+    reward = abs(tp - entry_price)
 
-    highs = [float(c["high"]) for c in candles]
-    lows = [float(c["low"]) for c in candles]
-    closes = [float(c["close"]) for c in candles]
+    if risk == 0:
+        return False
 
-    recent_high = max(highs[-20:])
-    recent_low = min(lows[-20:])
+    rr = reward / risk
 
-    current_price = closes[-1]
+    if rr >= 3:
+        return True
 
-    if bias == "BULLISH":
-        entry_zone = (
-            round(recent_low + (recent_high - recent_low) * 0.5, 2),
-            round(recent_low + (recent_high - recent_low) * 0.62, 2),
-        )
-        stop_loss = round(recent_low - 0.2, 2)
-        risk = entry_zone[1] - stop_loss
-        take_profit = round(entry_zone[1] + risk * 2, 2)
-
-    elif bias == "BEARISH":
-        entry_zone = (
-            round(recent_high - (recent_high - recent_low) * 0.62, 2),
-            round(recent_high - (recent_high - recent_low) * 0.5, 2),
-        )
-        stop_loss = round(recent_high + 0.2, 2)
-        risk = stop_loss - entry_zone[0]
-        take_profit = round(entry_zone[0] - risk * 2, 2)
-
-    else:
-        return None
-
-    return {
-        "zone": entry_zone,
-        "sl": stop_loss,
-        "tp": take_profit,
-    }
+    return False
