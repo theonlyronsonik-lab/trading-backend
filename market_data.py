@@ -1,6 +1,6 @@
 import requests
 import time
-from config import MARKET_API_KEY
+from config import TWELVEDATA_API_KEY
 
 # Cache structure:
 # {
