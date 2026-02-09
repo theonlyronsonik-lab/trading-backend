@@ -1,7 +1,10 @@
 import time
 from datetime import datetime
 
-from config import SYMBOLS, HTF, LTF from data import get_candles from entry import find_ltf_entry from notifier import send_message
+from config import SYMBOLS, HTF, LTF 
+from data import get_candles 
+from entry import find_ltf_entry 
+from notifier import send_message
 
 --- State ---
 
@@ -69,4 +72,5 @@ while True:
 
     time.sleep(30)
 
-if name == "main": run()
+if __name__ == "__main__": 
+    run()
