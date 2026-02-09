@@ -1,137 +1,74 @@
 import time
-
+from config import SYMBOLS, HTF, LTF, SYMBOL_COOLDOWN_SECONDS
 from market_data import fetch_candles
 from structure import get_structure_bias
 from zones import get_supply_demand_zones
-from entry import confirm_entry
 from risk import calculate_sl_tp
 from telegram_bot import send_telegram
-from config import SYMBOLS, HTF, LTF, SLEEP_SECONDS
+
+last_signal_time = {}  # symbol → timestamp
 
 
-# Prevent duplicate signals
-sent_setups = {}
+def process_symbol(symbol):
+    now = time.time()
 
+    # ⏳ COOLDOWN CHECK
+    if symbol in last_signal_time:
+        if now - last_signal_time[symbol] < SYMBOL_COOLDOWN_SECONDS:
+            return
 
-def analyze_symbol(symbol):
-
-    print(f"\nAnalyzing {symbol}...")
-
-    # Fetch HTF candles
-    candles_htf = fetch_candles(symbol, HTF)
-
-    if not candles_htf:
+    htf_candles = fetch_candles(symbol, HTF)
+    if not htf_candles:
         return
 
-    # Fetch LTF candles
-    candles_ltf = fetch_candles(symbol, LTF)
-
-    if not candles_ltf:
+    bias, structure_levels = get_structure_bias(htf_candles)
+    if not bias:
         return
 
-    # ------------------------------------------------
-    # MARKET STRUCTURE BIAS
-    # ------------------------------------------------
-    bias, structure = get_structure_bias(candles_htf)
-
-    if bias is None:
+    ltf_candles = fetch_candles(symbol, LTF)
+    if not ltf_candles:
         return
 
-    # ------------------------------------------------
-    # SUPPLY / DEMAND ZONES
-    # ------------------------------------------------
-    zones = get_supply_demand_zones(candles_htf)
+    zones = get_supply_demand_zones(ltf_candles)
+    entry_price = float(ltf_candles[0]["close"])
 
-    # ------------------------------------------------
-    # ENTRY PRICE (last close on LTF)
-    # ------------------------------------------------
-    entry_price = float(candles_ltf[-1]["close"])
-
-    # ------------------------------------------------
-    # CALCULATE SL / TP
-    # ------------------------------------------------
-    levels = calculate_sl_tp(
+    trade = calculate_sl_tp(
         bias=bias,
         entry_price=entry_price,
-        structure=structure,
-        demand_zones=zones["demand"],
-        supply_zones=zones["supply"]
+        structure_levels=structure_levels,
+        zones=zones
     )
 
-    if trade is None:
+    if not trade:
         return
 
     sl = trade["sl"]
     tp = trade["tp"]
     rr = trade["rr"]
 
-    if not levels:
-        return
-
-    entry = levels["entry"]
-    sl = levels["sl"]
-    tp = levels["tp"]
-    logic = levels["logic"]
-
-    # ------------------------------------------------
-    # CONFIRM RR >= 1:3
-    # ------------------------------------------------
-    if not confirm_entry(bias, entry, sl, tp):
-        print(f"{symbol} skipped — RR below 1:3")
-        return
-
-    # ------------------------------------------------
-    # PREVENT DUPLICATE SIGNALS
-    # ------------------------------------------------
-    setup_key = f"{symbol}_{bias}_{round(entry, 4)}"
-
-    if sent_setups.get(symbol) == setup_key:
-        print(f"{symbol} setup already sent.")
-        return
-
-    sent_setups[symbol] = setup_key
-
-    # ------------------------------------------------
-    # TELEGRAM ALERT
-    # ------------------------------------------------
     message = (
-        f"📊 TRADE SETUP FOUND\n\n"
-        f"Symbol: {symbol}\n"
+        f"📊 {symbol} SETUP FOUND\n"
         f"Bias: {bias.upper()}\n"
-        f"HTF → LTF: {HTF} → {LTF}\n\n"
-        f"Entry: {entry}\n"
-        f"Stop Loss: {sl}\n"
-        f"Take Profit: {tp}\n\n"
-        f"Logic: {logic}"
+        f"HTF: {HTF} → LTF: {LTF}\n"
+        f"Entry: {entry_price}\n"
+        f"SL: {sl}\n"
+        f"TP: {tp}\n"
+        f"RR: 1:{rr}\n"
     )
 
     send_telegram(message)
+    last_signal_time[symbol] = now
 
-    print(f"Signal sent for {symbol}")
 
-
-# ====================================================
-# MAIN LOOP
-# ====================================================
-def run_bot():
-
-    send_telegram("🤖 Trading bot started successfully")
+def main():
+    send_telegram("🤖 Bot running. Awaiting market conditions...")
 
     while True:
+        for symbol in SYMBOLS:
+            process_symbol(symbol)
 
-        try:
-            for symbol in SYMBOLS:
-                analyze_symbol(symbol)
-
-            time.sleep(SLEEP_SECONDS)
-
-        except Exception as e:
-            print("Bot error:", e)
-            time.sleep(60)
+        time.sleep(60)  # main loop delay
 
 
-# ====================================================
-# START BOT
-# ====================================================
-if __name__ == "__main__":
-    run_bot()
+if name == "main":
+    main()
