@@ -58,6 +58,13 @@ def analyze_symbol(symbol):
         supply_zones=zones["supply"]
     )
 
+    if trade is None:
+        return
+
+    sl = trade["sl"]
+    tp = trade["tp"]
+    rr = trade["rr"]
+
     if not levels:
         return
 
