@@ -23,3 +23,9 @@ CANDLE_LIMIT = 200
 
 # ===== LOOP SETTINGS =====
 SCAN_INTERVAL_SECONDS = 900  # 15 minutes
+
+# === COOLDOWN ===
+SYMBOL_COOLDOWN_SECONDS = 4 * 60 * 60  # 4 HOURS
+
+# === RISK ===
+MIN_RR = 3
