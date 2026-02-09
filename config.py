@@ -29,3 +29,6 @@ SYMBOL_COOLDOWN_SECONDS = 4 * 60 * 60  # 4 HOURS
 
 # === RISK ===
 MIN_RR = 3
+
+# ───── Bot loop sleep (seconds) ─────
+LOOP_SLEEP = 60  # bot wakes up every 60 seconds
