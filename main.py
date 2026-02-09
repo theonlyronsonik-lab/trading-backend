@@ -1,97 +1,183 @@
 import time
-from datetime import time as dtime
+from datetime import datetime, timezone
 
-from config import (
-    SYMBOLS,
-    HTF,
-    LTF,
-    HTF_SECONDS,
-    LTF_SECONDS,
-    LOOP_SLEEP
-)
-
-from market_data import fetch_candles
-from structure import get_structure_bias
-from telegram_bot import send_telegram
-from state import is_new_structure, update_structure
-
-last_htf_fetch = {}
-last_ltf_fetch = {}
+from config import SYMBOLS, HTF, LTF, LOOP_SLEEP
+from data import get_candles
+from notifier import send_message
 
 
-def now_ts():
-    return int(time.time())
+# =========================
+# STATE MANAGEMENT
+# =========================
+
+htf_state = {
+    symbol: {
+        "bias": None,
+        "active": False,
+        "last_htf_candle": None
+    } for symbol in SYMBOLS
+}
 
 
-def should_fetch(last_fetch, interval):
-    return now_ts() - last_fetch >= interval
+# =========================
+# UTILS
+# =========================
 
+def get_latest_candle_time(candles):
+    return candles[-1]["datetime"]
+
+
+def new_htf_candle(symbol):
+    candles = get_candles(symbol, HTF, limit=2)
+    latest_time = get_latest_candle_time(candles)
+
+    if htf_state[symbol]["last_htf_candle"] != latest_time:
+        htf_state[symbol]["last_htf_candle"] = latest_time
+        return True
+
+    return False
+
+
+# =========================
+# HTF ANALYSIS (4H)
+# =========================
+
+def analyze_htf(symbol):
+    candles = get_candles(symbol, HTF, limit=10)
+
+    highs = [c["high"] for c in candles]
+    lows = [c["low"] for c in candles]
+
+    last_high = highs[-1]
+    prev_high = highs[-2]
+    last_low = lows[-1]
+    prev_low = lows[-2]
+
+    if last_high > prev_high and last_low > prev_low:
+        return "BULLISH", True
+
+    if last_low < prev_low and last_high < prev_high:
+        return "BEARISH", True
+
+    return None, False
+
+
+# =========================
+# LTF STRUCTURE (15M)
+# =========================
+
+def detect_ltf_structure(candles, bias):
+    highs = [c["high"] for c in candles]
+    lows = [c["low"] for c in candles]
+
+    if bias == "BULLISH":
+        choch = highs[-2] > highs[-3]
+        impulse = candles[-1]["close"] > highs[-2]
+
+        if choch and impulse:
+            entry = candles[-1]["close"]
+            sl = lows[-3]
+            risk = entry - sl
+            tp = entry + (3 * risk)
+
+            rr = (tp - entry) / risk if risk > 0 else 0
+
+            return {
+                "direction": "BUY",
+                "entry": entry,
+                "sl": sl,
+                "tp": tp,
+                "rr": rr
+            }
+
+    if bias == "BEARISH":
+        choch = lows[-2] < lows[-3]
+        impulse = candles[-1]["close"] < lows[-2]
+
+        if choch and impulse:
+            entry = candles[-1]["close"]
+            sl = highs[-3]
+            risk = sl - entry
+            tp = entry - (3 * risk)
+
+            rr = (entry - tp) / risk if risk > 0 else 0
+
+            return {
+                "direction": "SELL",
+                "entry": entry,
+                "sl": sl,
+                "tp": tp,
+                "rr": rr
+            }
+
+    return None
+
+
+def find_ltf_entry(symbol, bias):
+    candles = get_candles(symbol, LTF, limit=20)
+    return detect_ltf_structure(candles, bias)
+
+
+# =========================
+# SIGNAL SENDER
+# =========================
+
+def send_trade_signal(symbol, trade):
+    message = (
+        f"🚨 LTF ENTRY CONFIRMED\n\n"
+        f"{symbol}\n"
+        f"Direction: {trade['direction']}\n"
+        f"Entry: {trade['entry']}\n"
+        f"SL: {trade['sl']}\n"
+        f"TP: {trade['tp']}\n"
+        f"RR: 1:{round(trade['rr'], 2)}"
+    )
+
+    send_message(message)
+
+
+# =========================
+# MAIN LOOP
+# =========================
 
 def run():
-    send_telegram("✅ Trading bot LIVE (HTF 4H → LTF 15m). Waiting for structure...")
+    send_message(
+        "Ron_Market Scanner:\n"
+        "✅ Trading bot LIVE (HTF 4H → LTF 15m).\n"
+        "Waiting for structure..."
+    )
 
     while True:
         for symbol in SYMBOLS:
-            try:
-                # =========================
-                # HTF FETCH CONTROL
-                # =========================
-                if symbol not in last_htf_fetch:
-                    last_htf_fetch[symbol] = 0
 
-                if not should_fetch(last_htf_fetch[symbol], HTF_SECONDS):
-                    continue
+            # -------- HTF CHECK --------
+            if new_htf_candle(symbol):
+                bias, structure_changed = analyze_htf(symbol)
 
-                htf_candles = fetch_candles(symbol, HTF)
-                if not htf_candles:
-                    continue
+                if structure_changed and bias:
+                    htf_state[symbol]["bias"] = bias
+                    htf_state[symbol]["active"] = True
 
-                htf_bias = get_structure_bias(htf_candles)
-                last_htf_fetch[symbol] = now_ts()
+                    send_message(
+                        f"📊 {symbol}\n"
+                        f"HTF (4H) Bias: {bias}\n"
+                        f"Structure changed – setup detected.\n"
+                        f"Await LTF entry confirmation."
+                    )
+                    # -------- LTF CHECK --------
+            if htf_state[symbol]["active"]:
+                trade = find_ltf_entry(symbol, htf_state[symbol]["bias"])
 
-                if htf_bias not in ["bullish", "bearish"]:
-                    continue
-
-                # =========================
-                # LTF FETCH CONTROL
-                # =========================
-                if symbol not in last_ltf_fetch:
-                    last_ltf_fetch[symbol] = 0
-
-                if not should_fetch(last_ltf_fetch[symbol], LTF_SECONDS):
-                    continue
-
-                ltf_candles = fetch_candles(symbol, LTF)
-                if not ltf_candles:
-                    continue
-
-                last_ltf_fetch[symbol] = now_ts()
-
-                structure = {
-                    "bias": htf_bias,
-                    "htf_high": max(c["high"] for c in htf_candles),
-                    "htf_low": min(c["low"] for c in htf_candles)
-                }
-
-                if not is_new_structure(symbol, structure):
-                    continue
-
-                update_structure(symbol, structure)
-
-                message = (
-                    f"📊 {symbol}\n"
-                    f"HTF (4H) Bias: {htf_bias.upper()}\n"
-                    f"Structure changed – setup detected.\n"
-                    f"Await LTF entry confirmation."
-                )
-
-                send_telegram(message)
-
-            except Exception as e:
-                print(f"Error processing {symbol}: {e}")
+                if trade and trade["rr"] >= 3:
+                    send_trade_signal(symbol, trade)
+                    htf_state[symbol]["active"] = False  # lock until next HTF change
 
         time.sleep(LOOP_SLEEP)
 
 
-if __name__ == "__main__":
+# =========================
+# ENTRY POINT
+# =========================
+
+if name == "main":
     run()
