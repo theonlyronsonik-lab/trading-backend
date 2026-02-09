@@ -2,11 +2,11 @@ from data import get_candles
 
 
 # ==============================
-# MARKET STRUCTURE (LTF)
+# LTF MARKET STRUCTURE
 # ==============================
 def detect_market_structure(candles, bias):
     """
-    Confirms simple pullback + continuation structure
+    Simple continuation confirmation on LTF
     """
 
     if len(candles) < 20:
@@ -25,16 +25,15 @@ def detect_market_structure(candles, bias):
 
 
 # ==============================
-# ENTRY LOGIC
+# LTF ENTRY FINDER
 # ==============================
-def find_ltf_entry(symbol, bias):
-    candles = get_candles(symbol, interval="15min", limit=50)
+def find_ltf_entry(symbol, bias, ltf="15min"):
+    candles = get_candles(symbol, ltf, limit=50)
 
     if not candles:
         return None
 
-    structure_ok = detect_market_structure(candles, bias)
-    if not structure_ok:
+    if not detect_market_structure(candles, bias):
         return None
 
     entry_price = candles[-1]["close"]
@@ -62,5 +61,5 @@ def find_ltf_entry(symbol, bias):
         "entry": round(entry_price, 5),
         "sl": round(sl, 5),
         "tp": round(tp, 5),
-        "rr": rr,
+        "rr": rr
     }
