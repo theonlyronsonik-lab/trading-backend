@@ -11,7 +11,6 @@ def send_message(text):
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": text,
-        "parse_mode": "Markdown"
     }
 
     response = requests.post(url, json=payload, timeout=10)
