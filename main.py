@@ -1,75 +1,104 @@
 import time
 from datetime import datetime
 
-from config import SYMBOLS, HTF, LTF 
-from data import get_candles 
-from entry import find_ltf_entry 
+from config import SYMBOLS, HTF, LTF
+from data import get_candles
+from entry import find_ltf_entry
 from notifier import send_message
 
 
-last_htf_time = {} htf_bias = {} active_symbols = set()  # cooldown until structure changes
+# ==============================
+# STATE (no single-line chaining)
+# ==============================
+last_htf_time = {}
+htf_bias = {}
+active_symbols = set()   # cooldown until HTF structure changes
 
-def is_new_htf_candle(symbol): """Check if a new HTF candle has closed.""" candles = get_candles(symbol, HTF, limit=2) if not candles or len(candles) < 2: return False
 
-last_closed = candles[-2]["datetime"]
+# ==============================
+# HELPERS
+# ==============================
+def new_htf_candle(symbol):
+    candles = get_candles(symbol, HTF, limit=2)
+    if not candles or len(candles) < 2:
+        return False
 
-if symbol not in last_htf_time:
-    last_htf_time[symbol] = last_closed
-    return True
+    latest_time = candles[-1]["datetime"]
 
-if last_closed != last_htf_time[symbol]:
-    last_htf_time[symbol] = last_closed
-    return True
+    if symbol not in last_htf_time:
+        last_htf_time[symbol] = latest_time
+        return True
 
-return False
+    if latest_time != last_htf_time[symbol]:
+        last_htf_time[symbol] = latest_time
+        return True
 
-def determine_htf_bias(candles): """Simple HTF bias using market structure (HH / LL).""" highs = [c["high"] for c in candles] lows = [c["low"] for c in candles]
+    return False
 
-if highs[-1] > highs[-2] and lows[-1] > lows[-2]:
-    return "BULLISH"
-if highs[-1] < highs[-2] and lows[-1] < lows[-2]:
+
+def determine_bias(htf_candles):
+    """
+    VERY simple placeholder:
+    Higher close = bullish
+    Lower close = bearish
+    """
+    if htf_candles[-1]["close"] > htf_candles[-2]["close"]:
+        return "BULLISH"
     return "BEARISH"
 
-return "RANGE"
 
-def run(): send_message("✅ Trading bot LIVE (HTF 4H → LTF 15m). Waiting for structure…")
+# ==============================
+# MAIN LOOP
+# ==============================
+def run():
+    send_message(
+        "✅ Trading bot LIVE\n"
+        f"HTF: {HTF} → LTF: {LTF}\n"
+        "Waiting for structure..."
+    )
 
-while True:
-    for symbol in SYMBOLS:
-        try:
-            # --- HTF logic ---
-            if is_new_htf_candle(symbol):
-                htf_candles = get_candles(symbol, HTF, limit=20)
-                bias = determine_htf_bias(htf_candles)
+    while True:
+        for symbol in SYMBOLS:
+            try:
+                # ---- HTF CHECK ----
+                if new_htf_candle(symbol):
+                    htf_candles = get_candles(symbol, HTF, limit=50)
+                    bias = determine_bias(htf_candles)
 
-                htf_bias[symbol] = bias
-                active_symbols.discard(symbol)  # reset cooldown
+                    htf_bias[symbol] = bias
+                    active_symbols.discard(symbol)  # reset cooldown
 
-                send_message(
-                    f"📊 {symbol}\n"
-                    f"HTF ({HTF}) Bias: {bias}\n"
-                    f"Structure changed – setup detected.\n"
-                    f"Await LTF entry confirmation."
-                )
+                    send_message(
+                        f"📊 {symbol}\n"
+                        f"HTF ({HTF}) Bias: {bias}\n"
+                        "Structure changed – waiting for LTF entry."
+                    )
 
-            # --- LTF logic (only after HTF bias) ---
-            if symbol in htf_bias and symbol not in active_symbols:
-                ltf_candles = get_candles(symbol, LTF, limit=50)
+                # ---- LTF ENTRY CHECK ----
+                if symbol in htf_bias and symbol not in active_symbols:
+                    entry = find_ltf_entry(symbol, htf_bias[symbol])
 
-                entry = find_ltf_entry(
-                    symbol=symbol,
-                    candles=ltf_candles,
-                    bias=htf_bias[symbol]
-                )
+                    if entry:
+                        send_message(
+                            f"🚀 ENTRY FOUND\n"
+                            f"{symbol}\n"
+                            f"Bias: {htf_bias[symbol]}\n"
+                            f"Entry: {entry['entry']}\n"
+                            f"SL: {entry['sl']}\n"
+                            f"TP: {entry['tp']}\n"
+                            f"RR: {entry['rr']}"
+                        )
 
-                if entry:
-                    send_message(entry)
-                    active_symbols.add(symbol)  # cooldown until next HTF shift
+                        active_symbols.add(symbol)  # cooldown until HTF changes
 
-        except Exception as e:
-            print(f"Error on {symbol}: {e}")
+            except Exception as e:
+                print(f"Error on {symbol}: {e}")
 
-    time.sleep(30)
+        time.sleep(30)
 
-if __name__ == "__main__": 
+
+# ==============================
+# ENTRY POINT
+# ==============================
+if __name__ == "__main__":
     run()
