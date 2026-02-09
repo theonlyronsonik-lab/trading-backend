@@ -1,7 +1,7 @@
 # =========================
 # API CONFIG
 # =========================
-TWELVE_DATA_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
+TWELVE_DATA_API_KEY = "aacf2d07c79840f3a6a149325f5c122c"
 
 # =========================
 # SYMBOLS & TIMEFRAMES
