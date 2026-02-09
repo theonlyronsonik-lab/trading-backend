@@ -6,7 +6,6 @@ from data import get_candles
 from entry import find_ltf_entry 
 from notifier import send_message
 
---- State ---
 
 last_htf_time = {} htf_bias = {} active_symbols = set()  # cooldown until structure changes
 
