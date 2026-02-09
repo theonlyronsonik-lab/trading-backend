@@ -8,8 +8,8 @@ TWELVE_DATA_API_KEY = "aacf2d07c79840f3a6a149325f5c122c"
 # =========================
 SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY"]
 
-HTF = "1h"      # Higher timeframe
-LTF = "5min"   # Lower timeframe
+HTF = "4h"      # Higher timeframe
+LTF = "15min"   # Lower timeframe
 
 HTF_SECONDS = 4 * 60 * 60       # 4 hours
 LTF_SECONDS = 15 * 60           # 15 minutes
