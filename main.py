@@ -2,7 +2,7 @@ import time
 from datetime import datetime, timezone
 
 from config import SYMBOLS, HTF, LTF, LOOP_SLEEP
-from market_data import get_candles
+from data import get_candles
 from notifier import send_message
 
 
