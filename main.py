@@ -9,7 +9,8 @@ from notifier import send_message
 # =========================
 # STATE MANAGEMENT
 # =========================
-
+last_htf_time = {}
+htf_bias = {}
 htf_state = {
     symbol: {
         "bias": None,
