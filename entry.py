@@ -15,3 +15,15 @@ def confirm_entry(bias, entry_price, sl, tp):
         return True
 
     return False
+    def find_ltf_entry(candles, bias):
+        """
+        Returns:
+        {
+            "price": float,
+            "type": "BUY" | "SELL"
+            }
+            or None
+            """
+        # your logic here
+        return None
+            
