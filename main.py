@@ -6,6 +6,8 @@ from zones import get_supply_demand_zones
 from risk import calculate_sl_tp
 from telegram_bot import send_telegram
 
+last_htf_fetch = {}
+last_ltf_fetch = {}
 last_signal_time = {}  # symbol → timestamp
 
 
@@ -17,17 +19,23 @@ def process_symbol(symbol):
         if now - last_signal_time[symbol] < SYMBOL_COOLDOWN_SECONDS:
             return
 
-    htf_candles = fetch_candles(symbol, HTF)
-    if not htf_candles:
-        return
-
+    now = time. time()
+    if symbol not in last_htf_fetch or now - last_htf_fetch[symbol] > 4 * 60 * 60:
+            htf_candles = fetch_candles(symbol, HTF)
+        last_htf_fetch[symbol] = now 
+    else:
+    return
     bias, structure_levels = get_structure_bias(htf_candles)
     if not bias:
         return
 
-    ltf_candles = fetch_candles(symbol, LTF)
-    if not ltf_candles:
-        return
+   now = time.time()
+
+if symbol not in last_htf_fetch or now - last_htf_fetch[symbol] > 4 * 60 * 60:
+    htf_candles = fetch_candles(symbol, HTF)
+    last_htf_fetch[symbol] = now
+else:
+    return
 
     zones = get_supply_demand_zones(ltf_candles)
     entry_price = float(ltf_candles[0]["close"])
