@@ -1,6 +1,6 @@
 import requests
 import time
-from config import TWELVE_API_KEY
+from config import TWELVEDATA_API_KEY
 
 BASE_URL = "https://api.twelvedata.com/time_series"
 
