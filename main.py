@@ -127,5 +127,5 @@ def run():
         time.sleep(LOOP_SLEEP)
 
 
-if name == "main":
+if __name__ == "__main__":
     run()
