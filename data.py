@@ -1,58 +1,37 @@
-import requests
 import time
+import requests
 from config import TWELVE_DATA_API_KEY
 
-BASE_URL = "https://api.twelvedata.com/time_series"
+LAST_API_CALL = 0
+MIN_API_INTERVAL = 8  # seconds (8 calls/min max)
 
-# Simple in-memory cache to reduce API calls
-_cache = {}
-CACHE_TTL = 60  # seconds
-
-
-def get_candles(symbol, timeframe, limit=50):
-    """
-    Returns a list of candles:
-    [
-        {
-            "datetime": str,
-            "open": float,
-            "high": float,
-            "low": float,
-            "close": float
-        }
-    ]
-    """
+def get_candles(symbol, timeframe, limit=100):
+    global LAST_API_CALL
 
     now = time.time()
-    cache_key = f"{symbol}_{timeframe}_{limit}"
+    elapsed = now - LAST_API_CALL
 
-    if cache_key in _cache:
-        data, timestamp = _cache[cache_key]
-        if now - timestamp < CACHE_TTL:
-            return data
+    if elapsed < MIN_API_INTERVAL:
+        time.sleep(MIN_API_INTERVAL - elapsed)
 
+    url = "https://api.twelvedata.com/time_series"
     params = {
         "symbol": symbol,
         "interval": timeframe,
-        "outputsize": limit,
+        "limit": limit,
         "apikey": TWELVE_DATA_API_KEY
     }
 
-    response = requests.get(BASE_URL, params=params, timeout=10)
+    response = requests.get(url, params=params)
+    LAST_API_CALL = time.time()
+
     data = response.json()
 
-    if "values" not in data:
+    if data.get("status") == "error":
+        if data.get("code") == 429:
+            print("⚠️ API limit hit. Sleeping 60 seconds...")
+            time.sleep(60)
+            return None
         raise Exception(f"TwelveData error: {data}")
 
-    candles = []
-    for c in reversed(data["values"]):
-        candles.append({
-            "datetime": c["datetime"],
-            "open": float(c["open"]),
-            "high": float(c["high"]),
-            "low": float(c["low"]),
-            "close": float(c["close"]),
-        })
-
-    _cache[cache_key] = (candles, now)
-    return candles
+    return data.get("values", [])
