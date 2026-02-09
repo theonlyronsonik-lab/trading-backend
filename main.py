@@ -26,16 +26,20 @@ htf_state = {
 def get_latest_candle_time(candles):
     return candles[-1]["datetime"]
 
-
 def new_htf_candle(symbol):
     candles = get_candles(symbol, HTF, limit=2)
-    latest_time = get_latest_candle_time(candles)
+    if not candles:
+        return False
 
-    if htf_state[symbol]["last_htf_candle"] != latest_time:
-        htf_state[symbol]["last_htf_candle"] = latest_time
+    latest_time = candles[0]["datetime"]
+
+    if last_htf_time.get(symbol) != latest_time:
+        last_htf_time[symbol] = latest_time
         return True
 
     return False
+
+
 
 
 # =========================
@@ -148,31 +152,16 @@ def run():
     )
 
     while True:
-        for symbol in SYMBOLS:
+       for symbol in SYMBOLS:
 
-            # -------- HTF CHECK --------
-            if new_htf_candle(symbol):
-                bias, structure_changed = analyze_htf(symbol)
+    # HTF check (rare)
+    if symbol not in htf_bias and new_htf_candle(symbol):
+        htf_bias[symbol] = analyze_htf(symbol)
+        send_message(f"{symbol} HTF bias set: {htf_bias[symbol]}")
 
-                if structure_changed and bias:
-                    htf_state[symbol]["bias"] = bias
-                    htf_state[symbol]["active"] = True
-
-                    send_message(
-                        f"📊 {symbol}\n"
-                        f"HTF (4H) Bias: {bias}\n"
-                        f"Structure changed – setup detected.\n"
-                        f"Await LTF entry confirmation."
-                    )
-                    # -------- LTF CHECK --------
-            if htf_state[symbol]["active"]:
-                trade = find_ltf_entry(symbol, htf_state[symbol]["bias"])
-
-                if trade and trade["rr"] >= 3:
-                    send_trade_signal(symbol, trade)
-                    htf_state[symbol]["active"] = False  # lock until next HTF change
-
-        time.sleep(LOOP_SLEEP)
+    # LTF check (conditional)
+    if symbol in htf_bias:
+        check_ltf_entry(symbol, htf_bias[symbol]) 
 
 
 # =========================
