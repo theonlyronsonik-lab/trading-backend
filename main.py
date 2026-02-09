@@ -1,31 +1,27 @@
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 
-from config import SYMBOLS, HTF, LTF, LOOP_SLEEP
+from config import SYMBOLS, HTF, LTF
 from data import get_candles
+from structure import detect_market_structure
+from entries import find_ltf_entry
+from risk import calculate_sl_tp
 from notifier import send_message
 
+# =========================
+# STATE
+# =========================
 
-# =========================
-# STATE MANAGEMENT
-# =========================
-last_htf_time = {}
-htf_bias = {}
-htf_state = {
-    symbol: {
-        "bias": None,
-        "active": False,
-        "last_htf_candle": None
-    } for symbol in SYMBOLS
-}
+htf_bias = {}              # symbol -> "BULLISH" | "BEARISH"
+last_htf_time = {}         # symbol -> last HTF candle time
+symbol_cooldown = {}       # symbol -> True/False
+
+LOOP_SLEEP = 30  # seconds
 
 
 # =========================
-# UTILS
+# HTF LOGIC
 # =========================
-
-def get_latest_candle_time(candles):
-    return candles[-1]["datetime"]
 
 def new_htf_candle(symbol):
     candles = get_candles(symbol, HTF, limit=2)
@@ -41,104 +37,70 @@ def new_htf_candle(symbol):
     return False
 
 
+def process_htf(symbol):
+    candles = get_candles(symbol, HTF, limit=200)
+    if not candles:
+        return
+
+    structure = detect_market_structure(candles)
+
+    previous_bias = htf_bias.get(symbol)
+    current_bias = structure["bias"]
+
+    if previous_bias != current_bias:
+        htf_bias[symbol] = current_bias
+        symbol_cooldown[symbol] = False  # reset cooldown on structure change
+
+        send_message(
+            f"📊 *{symbol}*\n"
+            f"HTF (4H) Bias: *{current_bias}*\n"
+            f"Structure changed – waiting for LTF entry."
+        )
 
 
 # =========================
-# HTF ANALYSIS (4H)
+# LTF LOGIC
 # =========================
 
-def analyze_htf(symbol):
-    candles = get_candles(symbol, HTF, limit=10)
+def process_ltf(symbol):
+    if symbol_cooldown.get(symbol):
+        return
 
-    highs = [c["high"] for c in candles]
-    lows = [c["low"] for c in candles]
+    bias = htf_bias.get(symbol)
+    if not bias:
+        return
 
-    last_high = highs[-1]
-    prev_high = highs[-2]
-    last_low = lows[-1]
-    prev_low = lows[-2]
+    candles = get_candles(symbol, LTF, limit=200)
+    if not candles:
+        return
 
-    if last_high > prev_high and last_low > prev_low:
-        return "BULLISH", True
+    entry = find_ltf_entry(candles, bias)
+    if not entry:
+        return
 
-    if last_low < prev_low and last_high < prev_high:
-        return "BEARISH", True
-
-    return None, False
-
-
-# =========================
-# LTF STRUCTURE (15M)
-# =========================
-
-def detect_ltf_structure(candles, bias):
-    highs = [c["high"] for c in candles]
-    lows = [c["low"] for c in candles]
-
-    if bias == "BULLISH":
-        choch = highs[-2] > highs[-3]
-        impulse = candles[-1]["close"] > highs[-2]
-
-        if choch and impulse:
-            entry = candles[-1]["close"]
-            sl = lows[-3]
-            risk = entry - sl
-            tp = entry + (3 * risk)
-
-            rr = (tp - entry) / risk if risk > 0 else 0
-
-            return {
-                "direction": "BUY",
-                "entry": entry,
-                "sl": sl,
-                "tp": tp,
-                "rr": rr
-            }
-
-    if bias == "BEARISH":
-        choch = lows[-2] < lows[-3]
-        impulse = candles[-1]["close"] < lows[-2]
-
-        if choch and impulse:
-            entry = candles[-1]["close"]
-            sl = highs[-3]
-            risk = sl - entry
-            tp = entry - (3 * risk)
-
-            rr = (entry - tp) / risk if risk > 0 else 0
-
-            return {
-                "direction": "SELL",
-                "entry": entry,
-                "sl": sl,
-                "tp": tp,
-                "rr": rr
-            }
-
-    return None
-
-
-def find_ltf_entry(symbol, bias):
-    candles = get_candles(symbol, LTF, limit=20)
-    return detect_ltf_structure(candles, bias)
-
-
-# =========================
-# SIGNAL SENDER
-# =========================
-
-def send_trade_signal(symbol, trade):
-    message = (
-        f"🚨 LTF ENTRY CONFIRMED\n\n"
-        f"{symbol}\n"
-        f"Direction: {trade['direction']}\n"
-        f"Entry: {trade['entry']}\n"
-        f"SL: {trade['sl']}\n"
-        f"TP: {trade['tp']}\n"
-        f"RR: 1:{round(trade['rr'], 2)}"
+    sl, tp, rr = calculate_sl_tp(
+        entry=entry,
+        candles=candles,
+        bias=bias,
+        use_supply_demand=True
     )
 
-    send_message(message)
+    if rr < 3:
+        return
+
+    symbol_cooldown[symbol] = True
+
+    send_message(
+        f"🚨 *TRADE SETUP FOUND*\n\n"
+        f"📍 Symbol: *{symbol}*\n"
+        f"🧭 Bias: *{bias}*\n"
+        f"⏱ TF: 15m\n\n"
+        f"➡️ Entry: {entry['price']}\n"
+        f"🛑 SL: {sl}\n"
+        f"🎯 TP: {tp}\n"
+        f"📐 RR: *1:{rr:.2f}*\n\n"
+        f"🧠 Logic: HTF structure → LTF confirmation"
+    )
 
 
 # =========================
@@ -146,28 +108,24 @@ def send_trade_signal(symbol, trade):
 # =========================
 
 def run():
-    send_message(
-        "Ron_Market Scanner:\n"
-        "✅ Trading bot LIVE (HTF 4H → LTF 15m).\n"
-        "Waiting for structure..."
-    )
+    send_message("✅ Trading bot LIVE (HTF 4H → LTF 15m). Waiting for structure...")
 
     while True:
-       for symbol in SYMBOLS:
+        for symbol in SYMBOLS:
+            try:
+                # HTF only on new candle
+                if new_htf_candle(symbol):
+                    process_htf(symbol)
 
-    # HTF check (rare)
-    if symbol not in htf_bias and new_htf_candle(symbol):
-        htf_bias[symbol] = analyze_htf(symbol)
-        send_message(f"{symbol} HTF bias set: {htf_bias[symbol]}")
+                # LTF only after HTF bias exists
+                if symbol in htf_bias:
+                    process_ltf(symbol)
 
-    # LTF check (conditional)
-    if symbol in htf_bias:
-        check_ltf_entry(symbol, htf_bias[symbol]) 
+            except Exception as e:
+                print(f"Error on {symbol}: {e}")
+
+        time.sleep(LOOP_SLEEP)
 
 
-# =========================
-# ENTRY POINT
-# =========================
-
-if __name__ == "__main__":
+if name == "main":
     run()
