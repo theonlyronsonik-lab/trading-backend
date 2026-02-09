@@ -1,4 +1,5 @@
-import time from datetime import datetime
+import time
+from datetime import datetime
 
 from config import SYMBOLS, HTF, LTF from data import get_candles from entry import find_ltf_entry from notifier import send_message
 
