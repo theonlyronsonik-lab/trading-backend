@@ -35,7 +35,7 @@ def get_candles(symbol, timeframe, limit=50):
         "symbol": symbol,
         "interval": timeframe,
         "outputsize": limit,
-        "apikey": TWELVE_API_KEY
+        "apikey": TWELVE_DATA_API_KEY
     }
 
     response = requests.get(BASE_URL, params=params, timeout=10)
