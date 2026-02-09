@@ -1,139 +1,57 @@
-"""
-LTF Entry Logic
-- Uses market structure (HH/HL or LH/LL)
-- Uses supply & demand zones
-- Confirms with HTF bias
-- Only valid if RR >= 1:3
-"""
+from data import get_candles
 
-from typing import Optional, Dict, List
+def detect_market_structure(candles, bias): """ Confirms LTF pullback + continuation """ if len(candles) < 20: return False
 
+last = candles[-1]
+prev = candles[-5]
 
-# -----------------------------
-# Helpers
-# -----------------------------
+if bias == "BULLISH" and last['close'] > prev['high']:
+    return True
+if bias == "BEARISH" and last['close'] < prev['low']:
+    return True
 
-def is_bullish_structure(candles: List[dict]) -> bool:
-    if len(candles) < 3:
-        return False
-    return candles[-1]["high"] > candles[-2]["high"] and candles[-1]["low"] > candles[-2]["low"]
+return False
 
+def detect_supply_demand(candles, bias): """ Simple zone logic: Demand = last strong down candle before push up Supply = last strong up candle before drop """ for c in reversed(candles[-20:]): body = abs(c['close'] - c['open']) wick = c['high'] - c['low']
 
-def is_bearish_structure(candles: List[dict]) -> bool:
-    if len(candles) < 3:
-        return False
-    return candles[-1]["low"] < candles[-2]["low"] and candles[-1]["high"] < candles[-2]["high"]
+if wick == 0:
+        continue
 
+    if bias == "BULLISH" and c['close'] < c['open'] and body / wick > 0.6:
+        return c['low']
 
-def find_demand_zone(candles: List[dict]) -> Optional[float]:
-    """
-    Simple demand zone:
-    last strong bearish candle before bullish move
-    """
-    for i in range(len(candles) - 3, 0, -1):
-        c = candles[i]
-        if c["close"] < c["open"]:
-            return c["low"]
+    if bias == "BEARISH" and c['close'] > c['open'] and body / wick > 0.6:
+        return c['high']
+
+return None
+
+def find_ltf_entry(symbol, bias): candles = get_candles(symbol, "15min", limit=100) if not candles: return None
+
+if not detect_market_structure(candles, bias):
     return None
 
-
-def find_supply_zone(candles: List[dict]) -> Optional[float]:
-    """
-    Simple supply zone:
-    last strong bullish candle before bearish move
-    """
-    for i in range(len(candles) - 3, 0, -1):
-        c = candles[i]
-        if c["close"] > c["open"]:
-            return c["high"]
+zone = detect_supply_demand(candles, bias)
+if zone is None:
     return None
 
+price = candles[-1]['close']
 
-def rr_is_valid(entry: float, sl: float, tp: float, rr_min: float = 3.0) -> bool:
-    risk = abs(entry - sl)
-    reward = abs(tp - entry)
-    if risk == 0:
-        return False
-    return (reward / risk) >= rr_min
+if bias == "BULLISH":
+    sl = zone - (price - zone) * 0.2
+    tp = price + (price - sl) * 3
+else:
+    sl = zone + (zone - price) * 0.2
+    tp = price - (sl - price) * 3
 
-
-# -----------------------------
-# MAIN ENTRY FUNCTION
-# -----------------------------
-
-def find_ltf_entry(
-    candles: List[dict],
-    htf_bias: str
-) -> Optional[Dict]:
-    """
-    Returns:
-    {
-        "type": "BUY" | "SELL",
-        "entry": float,
-        "sl": float,
-        "tp": float,
-        "rr": float
-    }
-    or None
-    """
-
-    if len(candles) < 10:
-        return None
-
-    last_price = candles[-1]["close"]
-
-    # -------------------------
-    # BULLISH SETUP
-    # -------------------------
-    if htf_bias == "BULLISH" and is_bullish_structure(candles):
-        demand = find_demand_zone(candles)
-        if not demand:
-            return None
-
-        entry = last_price
-        sl = demand
-        supply = find_supply_zone(candles)
-
-        if not supply:
-            return None
-
-        tp = supply
-
-        if rr_is_valid(entry, sl, tp):
-            rr = abs(tp - entry) / abs(entry - sl)
-            return {
-                "type": "BUY",
-                "entry": round(entry, 5),
-                "sl": round(sl, 5),
-                "tp": round(tp, 5),
-                "rr": round(rr, 2)
-            }
-
-    # -------------------------
-    # BEARISH SETUP
-    # -------------------------
-    if htf_bias == "BEARISH" and is_bearish_structure(candles):
-        supply = find_supply_zone(candles)
-        if not supply:
-            return None
-
-        entry = last_price
-        sl = supply
-        demand = find_demand_zone(candles)
-
-        if not demand:
-            return None
-
-        tp = demand
-
-        if rr_is_valid(entry, sl, tp):
-            rr = abs(entry - tp) / abs(sl - entry)
-            return {
-                "type": "SELL",
-                "entry": round(entry, 5),
-                "sl": round(sl, 5),
-                "tp": round(tp, 5),
-                "rr": round(rr, 2)
-            }
-
+rr = abs((tp - price) / (price - sl))
+if rr < 3:
     return None
+
+return (
+    f"🚀 LTF ENTRY FOUND ({symbol})\n"
+    f"Bias: {bias}\n"
+    f"Entry: {price}\n"
+    f"SL: {round(sl, 5)}\n"
+    f"TP: {round(tp, 5)}\n"
+    f"RR: 1:{round(rr, 2)}"
+)
