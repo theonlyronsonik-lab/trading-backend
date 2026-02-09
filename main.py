@@ -70,5 +70,5 @@ def main():
         time.sleep(60)  # main loop delay
 
 
-if name == "main":
+if __name__ == "__main__":
     main()
