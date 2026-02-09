@@ -3,7 +3,7 @@ from datetime import datetime
 
 from config import SYMBOLS, HTF, LTF
 from data import get_candles
-from structure import detect_market_structure
+from structure import get_structure_bias
 from entries import find_ltf_entry
 from risk import calculate_sl_tp
 from notifier import send_message
