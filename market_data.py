@@ -1,30 +1,23 @@
 import requests
-from config import TWELVE_DATA_API_KEY
+import time
+from config import TWELVE_DATA_API_KEY, CANDLE_LIMIT
+
+_cache = {}  # symbol_interval → last_timestamp, candles
 
 
-BASE_URL = "https://api.twelvedata.com/time_series"
+def fetch_candles(symbol, interval):
+    cache_key = f"{symbol}_{interval}"
 
-
-def fetch_candles(symbol, interval, limit=200):
-    """
-    symbol: e.g. 'XAU/USD', 'EUR/USD'
-    interval: '15min', '1h', '4h'
-    """
-
+    url = "https://api.twelvedata.com/time_series"
     params = {
         "symbol": symbol,
         "interval": interval,
         "apikey": TWELVE_DATA_API_KEY,
-        "outputsize": limit,
+        "outputsize": CANDLE_LIMIT,
         "format": "JSON"
     }
 
-    response = requests.get(BASE_URL, params=params)
-
-    if response.status_code != 200:
-        print(f"HTTP error for {symbol}: {response.text}")
-        return None
-
+    response = requests.get(url, params=params, timeout=10)
     data = response.json()
 
     if data.get("status") == "error":
@@ -33,12 +26,16 @@ def fetch_candles(symbol, interval, limit=200):
         return None
 
     candles = data.get("values", [])
-
     if not candles:
-        print(f"Empty candles for {symbol}")
         return None
 
-    # Convert to chronological order
-    candles.reverse()
+    latest_time = candles[0]["datetime"]
 
+    # 🧠 CACHE CHECK
+    if cache_key in _cache:
+        last_time, cached = _cache[cache_key]
+        if latest_time == last_time:
+            return cached  # no new candle → no API burn
+
+    _cache[cache_key] = (latest_time, candles)
     return candles
