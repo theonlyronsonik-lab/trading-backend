@@ -85,4 +85,4 @@ def run_bot():
 # START BOT
 # -------------------------
 if __name__ == "__main__":
-    run()
+    run_bot()
