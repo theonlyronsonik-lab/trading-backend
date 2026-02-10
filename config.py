@@ -1,28 +1,17 @@
-# =========================
-TWELVE_DATA_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
-# =========================
-# SYMBOLS & TIMEFRAMES
-# =========================
+# ===== TELEGRAM =====
+BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
+CHAT_ID = "6599172354"
 
-SYMBOLS = [
-    "GBP/USD",
-    "EUR/USD",
-    "XAU/USD",
-]
+# ===== TWELVE DATA =====
+TWELVE_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
+
+# ===== MARKET SETTINGS =====
+SYMBOLS = ["XAUUSD", "EURUSD", "GBPUSD"]
 
 HTF = "4h"
 LTF = "15min"
 
+HTF_CANDLES = 100
+LTF_CANDLES = 200
 
-# =========================
-# ENTRY SETTINGS
-# =========================
-
-RR_RATIO = 3          # Risk : Reward
-LOOKBACK_LTF = 120    # Candles to scan for structure
-ZONE_BUFFER = 0.0005  # Small padding for zones (adjust for XAU)
-# =========================
-# TELEGRAM
-# =========================
-TELEGRAM_BOT_TOKEN ="8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
-TELEGRAM_CHAT_ID ="6599172354"
+SCAN_INTERVAL = 60  # seconds
