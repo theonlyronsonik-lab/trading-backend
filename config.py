@@ -9,7 +9,7 @@ BASE_URL = "https://api.twelvedata.com/time_series"
 # ===== MARKET SETTINGS =====
 SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD"]
 
-HTF_TIMEFRAME = "1h"
-LTF_TIMEFRAME = "5min"
+HTF = "1h"
+LTF = "5min"
 
-LOOP_INTERVAL = 60  # seconds
+LOOP_DELAY = 60  # seconds
