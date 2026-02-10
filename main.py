@@ -1,120 +1,109 @@
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from config import SYMBOLS, HTF, LTF
 from data import get_candles
 from entry import find_ltf_entry
 from notifier import send_message
 
-print("DEBUG SYMBOLS FROM CONFIG =", SYMBOLS)
-HTF_CHECK_INTERVAL = timedelta(hours=1)
-LOOP_SLEEP = 300  # 5 minutes
 
-last_htf_bias = {}
-last_htf_check = {}
-ltf_sent = set()
+# =========================
+# SETTINGS
+# =========================
+HTF_CANDLES = 200
+LTF_CANDLES = 200
+SLEEP_TIME = 300  # 5 minutes
 
 
-def detect_htf_bias(candles):
-    if len(candles) < 30:
-        return "INSUFFICIENT_DATA"
+# =========================
+# STATE
+# =========================
+htf_bias = {}
+sent_entries = set()
 
-    highs = [c["high"] for c in candles[-10:]]
-    lows = [c["low"] for c in candles[-10:]]
 
+# =========================
+# HTF STRUCTURE (HH/HL, LH/LL)
+# =========================
+def detect_htf_structure(candles):
+    if len(candles) < 50:
+        return None
+
+    highs = [c["high"] for c in candles[-20:]]
+    lows = [c["low"] for c in candles[-20:]]
+
+    # Higher Highs + Higher Lows
     if highs[-1] > highs[0] and lows[-1] > lows[0]:
         return "BULLISH"
 
+    # Lower Highs + Lower Lows
     if highs[-1] < highs[0] and lows[-1] < lows[0]:
         return "BEARISH"
 
-    return "RANGE"
+    return None
 
 
+# =========================
+# MAIN
+# =========================
 def run():
     send_message("🤖 Bot is LIVE.")
 
-    # ---------- STARTUP HTF CHECK ----------
+    # -------- HTF ANALYSIS ON STARTUP --------
     for symbol in SYMBOLS:
         try:
-            candles = get_candles(symbol, HTF, limit=200)
+            candles = get_candles(symbol, HTF, limit=HTF_CANDLES)
 
-            candle_count = len(candles) if candles else 0
-            bias = detect_htf_bias(candles) if candles else "NO_DATA"
+            if not candles:
+                continue
 
-            last_htf_bias[symbol] = bias
-            last_htf_check[symbol] = datetime.utcnow()
+            bias = detect_htf_structure(candles)
 
-            send_message(
-                f"📊 HTF ANALYSIS (STARTUP)\n"
-                f"Symbol: {symbol}\n"
-                f"Timeframe: {HTF}\n"
-                f"Candles received: {candle_count}\n"
-                f"Bias: {bias}"
-            )
+            if bias:
+                htf_bias[symbol] = bias
+
+                send_message(
+                    f"📊 HTF STRUCTURE\n\n"
+                    f"Symbol: {symbol}\n"
+                    f"Bias ({HTF}): {bias}"
+                )
 
         except Exception as e:
-            send_message(
-                f"❌ HTF ERROR\n"
-                f"Symbol: {symbol}\n"
-                f"Error: {e}"
-            )
+            print(f"HTF error on {symbol}: {e}")
 
-    # ---------- MAIN LOOP ----------
+    # -------- CONTINUOUS LTF SCANNING --------
     while True:
-        now = datetime.utcnow()
-
         for symbol in SYMBOLS:
             try:
-                # HTF recheck
-                if now - last_htf_check.get(symbol, now) >= HTF_CHECK_INTERVAL:
-                    candles = get_candles(symbol, HTF, limit=200)
-                    candle_count = len(candles) if candles else 0
-                    new_bias = detect_htf_bias(candles) if candles else "NO_DATA"
+                bias = htf_bias.get(symbol)
 
-                    if new_bias != last_htf_bias.get(symbol):
-                        last_htf_bias[symbol] = new_bias
-                        ltf_sent.discard(symbol)
-
-                        send_message(
-                            f"🔄 HTF UPDATE\n"
-                            f"Symbol: {symbol}\n"
-                            f"Timeframe: {HTF}\n"
-                            f"Candles: {candle_count}\n"
-                            f"Bias: {new_bias}"
-                        )
-
-                    last_htf_check[symbol] = now
-
-                # LTF entries
-                bias = last_htf_bias.get(symbol)
-
-                if bias not in ("BULLISH", "BEARISH"):
+                if not bias:
                     continue
 
-                if symbol in ltf_sent:
+                if symbol in sent_entries:
                     continue
 
                 entry = find_ltf_entry(symbol, bias, LTF)
 
                 if entry:
                     send_message(
-                        f"🎯 LTF ENTRY\n"
+                        f"🚨 TRADE SETUP FOUND\n\n"
                         f"Symbol: {symbol}\n"
-                        f"Bias: {bias}\n"
-                        f"Timeframe: {LTF}\n\n"
-                        f"Entry: {entry['entry']}\n"
-                        f"SL: {entry['sl']}\n"
-                        f"TP: {entry['tp']}\n"
-                        f"RR: {entry['rr']}"
+                        f"Bias ({HTF}): {bias}\n"
+                        f"Entry TF: {LTF}\n\n"
+                        f"📍 Entry Zone: {entry['entry_zone']}\n"
+                        f"🛑 Stop Loss: {entry['sl']}\n"
+                        f"🎯 Take Profit: {entry['tp']}\n\n"
+                        f"⚠️ Wait for price to react inside the zone.\n"
+                        f"No FOMO. No market orders."
                     )
 
-                    ltf_sent.add(symbol)
+                    sent_entries.add(symbol)
 
             except Exception as e:
-                send_message(f"❌ Runtime error on {symbol}: {e}")
+                print(f"LTF error on {symbol}: {e}")
 
-        time.sleep(LOOP_SLEEP)
+        time.sleep(SLEEP_TIME)
 
 
 if __name__ == "__main__":
