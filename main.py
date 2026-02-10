@@ -13,9 +13,6 @@ from notifier import send_message
 HTF_CHECK_INTERVAL = timedelta(hours=1)
 LOOP_SLEEP = 300  # 5 minutes
 
-LONDON_SESSION = (7, 10)   # UTC
-NY_SESSION = (13, 16)     # UTC
-
 
 # =============================
 # STATE
@@ -26,27 +23,21 @@ ltf_sent = set()
 
 
 # =============================
-# HELPERS
+# HTF BIAS DETECTION
 # =============================
-def in_trading_session():
-    hour = datetime.utcnow().hour
-    return (
-        LONDON_SESSION[0] <= hour <= LONDON_SESSION[1] or
-        NY_SESSION[0] <= hour <= NY_SESSION[1]
-    )
-
-
 def detect_htf_bias(candles):
     if len(candles) < 50:
         return None
 
-    last = candles[-1]
-    prev = candles[-2]
+    highs = [c["high"] for c in candles[-20:]]
+    lows = [c["low"] for c in candles[-20:]]
 
-    if last["close"] > prev["high"]:
+    last_close = candles[-1]["close"]
+
+    if last_close > max(highs[:-1]):
         return "BULLISH"
 
-    if last["close"] < prev["low"]:
+    if last_close < min(lows[:-1]):
         return "BEARISH"
 
     return None
@@ -56,39 +47,54 @@ def detect_htf_bias(candles):
 # MAIN
 # =============================
 def run():
-    send_message("🤖 Bot is LIVE.\n⏱ Running only during London & NY sessions.")
+    send_message("🤖 Bot is LIVE.")
 
+    # ---------- STARTUP HTF ANALYSIS ----------
+    for symbol in SYMBOLS:
+        try:
+            htf_candles = get_candles(symbol, HTF, limit=200)
+            last_htf_check[symbol] = datetime.utcnow()
+
+            if not htf_candles:
+                continue
+
+            bias = detect_htf_bias(htf_candles)
+
+            if bias:
+                last_htf_bias[symbol] = bias
+
+                send_message(
+                    f"📈 CURRENT HTF BIAS\n"
+                    f"Symbol: {symbol}\n"
+                    f"Timeframe: {HTF}\n"
+                    f"Bias: {bias}"
+                )
+
+        except Exception as e:
+            print(f"Startup HTF error on {symbol}: {e}")
+
+    # ---------- MAIN LOOP ----------
     while True:
-        if not in_trading_session():
-            time.sleep(600)  # sleep 10 minutes outside sessions
-            continue
-
         now = datetime.utcnow()
 
         for symbol in SYMBOLS:
             try:
-                # ---------- HTF ----------
-                if (
-                    symbol not in last_htf_check or
-                    now - last_htf_check[symbol] >= HTF_CHECK_INTERVAL
-                ):
-                    htf_candles = get_candles(symbol, HTF, limit=100)
+                # ---------- HTF RECHECK ----------
+                if now - last_htf_check.get(symbol, now) >= HTF_CHECK_INTERVAL:
+                    htf_candles = get_candles(symbol, HTF, limit=200)
                     last_htf_check[symbol] = now
-
-                    if not htf_candles:
-                        continue
 
                     bias = detect_htf_bias(htf_candles)
 
-                    if bias:
+                    if bias and last_htf_bias.get(symbol) != bias:
                         last_htf_bias[symbol] = bias
                         ltf_sent.discard(symbol)
 
                         send_message(
-                            f"📈 HTF STATUS\n"
+                            f"🔄 HTF BIAS UPDATED\n"
                             f"Symbol: {symbol}\n"
                             f"Timeframe: {HTF}\n"
-                            f"Bias: {bias}"
+                            f"New Bias: {bias}"
                         )
 
                 # ---------- LTF ----------
