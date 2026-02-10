@@ -35,7 +35,10 @@ def detect_htf_bias(candles):
 # MAIN LOOP
 # ==============================
 def run():
+    send_message("🤖 Trading bot is LIVE and running.")
+    
     while True:
+        ...
         for symbol in SYMBOLS:
             try:
                 # ---- HTF ----
