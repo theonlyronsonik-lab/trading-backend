@@ -1,21 +1,35 @@
 import requests
+from config import TWELVE_API_KEY
 
 # -------------------------
-# FETCH CANDLES
+# FETCH CANDLES (TwelveData API)
 # -------------------------
 def fetch_candles(symbol, timeframe, limit=100):
     """
-    Fetch candle data from your API.
-    Replace this with your actual API call.
+    Fetch candle data from TwelveData API for live signals.
+    Returns a list of candles with 'high', 'low', 'close'.
     """
-    # Example placeholder URL
-    url = f"https://api.example.com/candles?symbol={symbol}&tf={timeframe}&limit={limit}"
+    url = "https://api.twelvedata.com/time_series"
+    params = {
+        "symbol": symbol,
+        "interval": timeframe,  # e.g., "1min", "15min", "1h", "1d"
+        "outputsize": limit,
+        "apikey": TWELVE_API_KEY
+    }
+
     try:
-        response = requests.get(url)
+        response = requests.get(url, params=params)
         response.raise_for_status()
         data = response.json()
-        return data
-    except Exception as e:
+
+        if "values" in data:
+            # TwelveData returns latest first, reverse so oldest first
+            return list(reversed(data["values"]))
+        else:
+            print(f"Error fetching candles for {symbol}: {data}")
+            return None
+
+    except requests.exceptions.RequestException as e:
         print(f"Error fetching candles for {symbol}: {e}")
         return None
 
