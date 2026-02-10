@@ -1,80 +1,88 @@
 import time
-from datetime import datetime
-from config import SYMBOLS, HTF, LTF, LOOP_DELAY
 from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
 from telegram_bot import send_telegram_message
 
-# ==============================
-# STATE
-# ==============================
-htf_bias = {}
-htf_reported = set()
+# -------------------------
+# SETTINGS
+# -------------------------
+SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD"]
 
-# ==============================
-# BOT START
-# ==============================
-def start_bot():
-    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
-    print("Bot started at", datetime.utcnow())
+HTF_TIMEFRAME = "1h"
+LTF_TIMEFRAME = "5min"
 
-# ==============================
-# HTF ANALYSIS (ON START + STRUCTURE CHANGE)
-# ==============================
-def process_htf(symbol):
-    candles = fetch_candles(symbol, HTF, limit=100)
-    if not candles or len(candles) < 20:
-        return None
-    bias = analyse_htf_structure(candles)
-    return bias
+SCAN_INTERVAL = 60  # seconds (checks every minute)
 
-# ==============================
+# Track sent signals to avoid duplicates
+sent_signals = {}
+
+# -------------------------
 # MAIN LOOP
-# ==============================
-def run():
-    start_bot()
+# -------------------------
+def run_bot():
+    print("🚀 Ron_Market Scanner started...")
 
     while True:
         for symbol in SYMBOLS:
             try:
-                # -------- HTF --------
-                bias = process_htf(symbol)
-                if bias is None:
+                # -------------------------
+                # 1️⃣ HTF STRUCTURE
+                # -------------------------
+                htf_candles = fetch_candles(symbol, HTF_TIMEFRAME, limit=100)
+                if not htf_candles:
                     continue
 
-                # Send HTF bias once per symbol (startup)
-                if symbol not in htf_reported:
-                    htf_bias[symbol] = bias
-                    htf_reported.add(symbol)
+                htf_bias = analyse_htf_structure(htf_candles)
+
+                # Send HTF bias once per change
+                if sent_signals.get(f"{symbol}_htf") != htf_bias:
                     send_telegram_message(
                         f"📊 HTF STRUCTURE\n\n"
                         f"Symbol: {symbol}\n"
-                        f"Timeframe: {HTF}\n"
-                        f"Bias: {bias}"
+                        f"Timeframe: {HTF_TIMEFRAME}\n"
+                        f"Bias: {htf_bias}"
                     )
+                    sent_signals[f"{symbol}_htf"] = htf_bias
 
-                # -------- LTF --------
-                if symbol not in htf_bias:
+                # Skip LTF if market is ranging
+                if htf_bias == "RANGE":
                     continue
 
-                ltf_candles = fetch_candles(symbol, LTF, limit=100)
-                if not ltf_candles or len(ltf_candles) < 30:
+                # -------------------------
+                # 2️⃣ LTF ENTRY
+                # -------------------------
+                ltf_candles = fetch_candles(symbol, LTF_TIMEFRAME, limit=100)
+                if not ltf_candles:
                     continue
 
-                entry = analyse_ltf_entry(
-                    candles=ltf_candles,
-                    htf_bias=htf_bias[symbol]
-                )
+                entry = analyse_ltf_entry(symbol, ltf_candles, htf_bias)
 
                 if entry:
-                    send_telegram_message(entry)
+                    signal_id = f"{symbol}_{entry['direction']}_{entry['entry']}"
+
+                    # Prevent duplicate alerts
+                    if sent_signals.get(symbol) != signal_id:
+                        message = (
+                            f"🚨 LTF ENTRY SIGNAL 🚨\n\n"
+                            f"Symbol: {symbol}\n"
+                            f"Direction: {entry['direction']}\n"
+                            f"HTF Bias: {entry['bias']}\n\n"
+                            f"📍 Entry: {entry['entry']}\n"
+                            f"🛑 Stop Loss: {entry['sl']}\n"
+                            f"🎯 Take Profit: {entry['tp']}\n\n"
+                            f"📌 Reason:\n{entry['reason']}"
+                        )
+
+                        send_telegram_message(message)
+                        sent_signals[symbol] = signal_id
 
             except Exception as e:
-                print(f"Error on {symbol}: {e}")
+                print(f"Error processing {symbol}: {e}")
 
-        time.sleep(LOOP_DELAY)
+        time.sleep(SCAN_INTERVAL)
 
-# ==============================
-# ENTRY POINT
-# ==============================
+
+# -------------------------
+# START BOT
+# -------------------------
 if __name__ == "__main__":
     run()
