@@ -6,7 +6,7 @@ from data import get_candles
 from entry import find_ltf_entry
 from notifier import send_message
 
-
+print("DEBUG SYMBOLS FROM CONFIG =", SYMBOLS)
 HTF_CHECK_INTERVAL = timedelta(hours=1)
 LOOP_SLEEP = 300  # 5 minutes
 
