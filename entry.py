@@ -1,14 +1,7 @@
 import requests
-
-
 if recent_high > prev_high and recent_low > prev_low:
-return "BULLISH"
-
-
-return "RANGE"
-
-
-
+  return "BULLISH"
+  return "RANGE"
 
 # -------------------------
 # LTF ENTRY (CONFIRMATION)
