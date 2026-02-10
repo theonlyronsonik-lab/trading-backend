@@ -8,8 +8,8 @@ TWELVE_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 # ===== MARKET SETTINGS =====
 SYMBOLS = ["XAUUSD", "EURUSD", "GBPUSD"]
 
-HTF = "4h"
-LTF = "15min"
+HTF = "1h"
+LTF = "5min"
 
 HTF_CANDLES = 100
 LTF_CANDLES = 200
