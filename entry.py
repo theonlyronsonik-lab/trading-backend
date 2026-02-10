@@ -1,80 +1,77 @@
-# =========================
-# entry.py
-# =========================
 import requests
-from config import TWELVE_API_KEY, BASE_URL
 
 
-def fetch_candles(symbol, timeframe, limit=100):
-    params = {
-        "symbol": symbol,
-        "interval": timeframe,
-        "apikey": TWELVE_API_KEY,
-        "outputsize": limit
-    }
-    r = requests.get(BASE_URL, params=params).json()
-
-    if r.get("status") == "error":
-        print("API ERROR:", r)
-        return []
-
-    return r.get("values", [])
+if recent_high > prev_high and recent_low > prev_low:
+return "BULLISH"
 
 
-def analyse_htf_structure(candles):
-    if len(candles) < 10:
-        return "NO_DATA"
-
-    highs = [float(c["high"]) for c in candles]
-    lows = [float(c["low"]) for c in candles]
-
-    if highs[-1] < highs[-5] and lows[-1] < lows[-5]:
-        return "BEARISH"
-    if highs[-1] > highs[-5] and lows[-1] > lows[-5]:
-        return "BULLISH"
-
-    return "RANGE"
+return "RANGE"
 
 
+
+
+# -------------------------
+# LTF ENTRY (CONFIRMATION)
+# -------------------------
 def analyse_ltf_entry(candles, htf_bias):
-    if len(candles) < 20:
-        return None
+if len(candles) < 60:
+return None
 
-    highs = [float(c["high"]) for c in candles]
-    lows = [float(c["low"]) for c in candles]
-    closes = [float(c["close"]) for c in candles]
 
-    last_close = closes[-1]
+highs = [float(c["high"]) for c in candles]
+lows = [float(c["low"]) for c in candles]
+closes = [float(c["close"]) for c in candles]
 
-    # --- simple support / resistance ---
-    resistance = max(highs[-20:-1])
-    support = min(lows[-20:-1])
 
-    # --- BOS / CHOCH logic ---
-    if htf_bias == "BEARISH" and last_close < support:
-        entry = last_close
-        sl = resistance
-        tp = entry - (sl - entry) * 2
-        return {
-            "direction": "SELL",
-            "bias": htf_bias,
-            "entry": round(entry, 5),
-            "sl": round(sl, 5),
-            "tp": round(tp, 5),
-            "reason": "LTF BOS below support in HTF bearish structure"
-        }
+last_close = closes[-1]
 
-    if htf_bias == "BULLISH" and last_close > resistance:
-        entry = last_close
-        sl = support
-        tp = entry + (entry - sl) * 2
-        return {
-            "direction": "BUY",
-            "bias": htf_bias,
-            "entry": round(entry, 5),
-            "sl": round(sl, 5),
-            "tp": round(tp, 5),
-            "reason": "LTF BOS above resistance in HTF bullish structure"
-        }
 
-    return None
+# --- Supply / Demand zones ---
+supply = max(highs[-30:-5])
+demand = min(lows[-30:-5])
+
+
+# --- CHOCH / BOS confirmation ---
+prev_high = max(highs[-10:-5])
+prev_low = min(lows[-10:-5])
+
+
+# BEARISH SETUP
+if htf_bias == "BEARISH":
+# price reacts at supply and breaks structure
+if last_close < prev_low and supply > last_close:
+entry = last_close
+sl = supply
+tp = entry - 2 * (sl - entry)
+
+
+return {
+"direction": "SELL",
+"bias": htf_bias,
+"entry": round(entry, 5),
+"sl": round(sl, 5),
+"tp": round(tp, 5),
+"reason": "LTF CHOCH/BOS after reaction from supply in HTF bearish context"
+}
+
+
+# BULLISH SETUP
+if htf_bias == "BULLISH":
+if last_close > prev_high and demand < last_close:
+entry = last_close
+sl = demand
+tp = entry + 2 * (entry - sl)
+
+
+return {
+"direction": "BUY",
+"bias": htf_bias,
+"entry": round(entry, 5),
+"sl": round(sl, 5),
+"tp": round(tp, 5),
+"reason": "LTF CHOCH/BOS after reaction from demand in HTF bullish context"
+}
+
+
+return None
+
