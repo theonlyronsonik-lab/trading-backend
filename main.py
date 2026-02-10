@@ -10,8 +10,7 @@ from telegram_bots import send_telegram_message
 
 
 
-def run():
-print("Bot started successfully")
+def run():print("Bot started successfully")
 
 
 while True:
