@@ -1,55 +1,63 @@
+# =========================
+# main.py
+# =========================
 import time
-import requests
-from config import *
-from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
+from config import SYMBOLS, HTF_TIMEFRAME, LTF_TIMEFRAME, LOOP_INTERVAL
+from entry import (
+    fetch_candles,
+    analyse_htf_structure,
+    analyse_ltf_entry
+)
+from telegram_utils import send_telegram_message
 
 
-def send_telegram(msg):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    data = {"chat_id": CHAT_ID, "text": msg}
-    requests.post(url, data=data)
+def run():
+    while True:
+        for symbol in SYMBOLS:
+            # -------- HTF --------
+            htf_candles = fetch_candles(symbol, HTF_TIMEFRAME, limit=150)
+            print(f"{symbol} HTF candles: {len(htf_candles)}")
+
+            if not htf_candles:
+                continue
+
+            htf_bias = analyse_htf_structure(htf_candles)
+            print(f"HTF Bias: {htf_bias}")
+
+            if htf_bias == "NO_DATA":
+                continue
+
+            # -------- LTF --------
+            ltf_candles = fetch_candles(symbol, LTF_TIMEFRAME, limit=200)
+            print(f"{symbol} LTF candles: {len(ltf_candles)}")
+
+            if not ltf_candles:
+                continue
+
+            ltf_signal = analyse_ltf_entry(ltf_candles, htf_bias)
+            print("LTF CHECK:", ltf_signal)
+
+            if ltf_signal:
+                msg = f"""
+🚨 *TRADE SETUP FOUND*
+
+Symbol: {symbol}
+HTF Bias: {ltf_signal['bias']}
+Direction: {ltf_signal['direction']}
+
+Entry: {ltf_signal['entry']}
+Stop Loss: {ltf_signal['sl']}
+Take Profit: {ltf_signal['tp']}
+
+Reason:
+{ltf_signal['reason']}
+"""
+                send_telegram_message(msg)
+
+        time.sleep(LOOP_INTERVAL)
 
 
-send_telegram("🤖 Ron_Market Scanner is LIVE.\nAnalysing existing HTF structure...")
+if __name__ == "__main__":
+    run()
 
 
-htf_bias = {}
-
-# 🔥 ANALYSE EXISTING HTF IMMEDIATELY
-for symbol in SYMBOLS:
-    htf_candles = fetch_candles(symbol, HTF, HTF_CANDLES)
-    bias = analyse_htf_structure(htf_candles)
-    htf_bias[symbol] = bias
-
-    send_telegram(
-        f"📊 HTF ANALYSIS (STARTUP)\n"
-        f"Symbol: {symbol}\n"
-        f"Timeframe: {HTF}\n"
-        f"Candles: {len(htf_candles)}\n"
-        f"Bias: {bias}"
-    )
-
-
-# 🔁 CONTINUOUS LTF SCAN
-while True:
-    for symbol in SYMBOLS:
-        bias = htf_bias.get(symbol)
-        if bias in ["NO_DATA", "RANGE"]:
-            continue
-
-        ltf_candles = fetch_candles(symbol, LTF, LTF_CANDLES)
-        setup = analyse_ltf_entry(ltf_candles, bias)
-
-        if setup:
-            send_telegram(
-                f"🚨 TRADE SETUP FOUND\n\n"
-                f"Symbol: {symbol}\n"
-                f"Bias ({HTF}): {bias}\n"
-                f"Entry TF: {LTF}\n\n"
-                f"📍 Entry: {setup['entry']}\n"
-                f"🛑 SL: {setup['sl']}\n"
-                f"🎯 TP: {setup['tp']}\n\n"
-                f"⚠️ Wait for confirmation. No FOMO."
-            )
-
-    time.sleep(SCAN_INTERVAL)
