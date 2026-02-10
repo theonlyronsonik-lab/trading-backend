@@ -4,6 +4,7 @@ CHAT_ID = "6599172354"
 
 # ===== TWELVE DATA =====
 TWELVE_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
+BASE_URL = "https://api.twelvedata.com/time_series"
 
 # ===== MARKET SETTINGS =====
 SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD"]
