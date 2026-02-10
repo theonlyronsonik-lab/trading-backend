@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 from config import SYMBOLS, HTF, LTF, LOOP_DELAY
 from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-from telegram_bots import send_telegram_message
+from telegram_bot import send_telegram_message
 
 # ==============================
 # STATE
