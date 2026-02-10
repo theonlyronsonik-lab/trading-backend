@@ -1,30 +1,11 @@
-# =========================
-# API CONFIG
-# =========================
-TWELVE_DATA_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
+import os
 
-# =========================
-# SYMBOLS & TIMEFRAMES
-# =========================
-SYMBOLS = ["XAUUSD,"
-           "EURUSD,"
-            ]
+_raw = os.getenv("SYMBOLS")
 
-HTF = "4h"      # Higher timeframe
-LTF = "15min"   # Lower timeframe
+if _raw:
+    SYMBOLS = [s.strip() for s in _raw.split(",") if s.strip()]
+else:
+    SYMBOLS = ["XAUUSD", "EURUSD"]
 
-HTF_SECONDS = 4 * 60 * 60       # 4 hours
-LTF_SECONDS = 15 * 60           # 15 minutes
-
-CANDLE_LIMIT = 200
-
-# =========================
-# LOOP CONTROL
-# =========================
-LOOP_SLEEP = 60  # seconds
-
-# =========================
-# TELEGRAM
-# =========================
-TELEGRAM_BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
-TELEGRAM_CHAT_ID = "6599172354"
+HTF = "4h"
+LTF = "15min"
