@@ -1,20 +1,14 @@
 import time
 from datetime import datetime
 from config import SYMBOLS, HTF, LTF, LOOP_DELAY
-from entry import (
-    fetch_candles,
-    analyse_htf_structure,
-    analyse_ltf_entry
-)
+from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
 from telegram_bots import send_telegram_message
-
 
 # ==============================
 # STATE
 # ==============================
 htf_bias = {}
 htf_reported = set()
-
 
 # ==============================
 # BOT START
@@ -23,19 +17,15 @@ def start_bot():
     send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
     print("Bot started at", datetime.utcnow())
 
-
 # ==============================
 # HTF ANALYSIS (ON START + STRUCTURE CHANGE)
 # ==============================
 def process_htf(symbol):
     candles = fetch_candles(symbol, HTF, limit=100)
-
     if not candles or len(candles) < 20:
         return None
-
     bias = analyse_htf_structure(candles)
     return bias
-
 
 # ==============================
 # MAIN LOOP
@@ -48,7 +38,6 @@ def run():
             try:
                 # -------- HTF --------
                 bias = process_htf(symbol)
-
                 if bias is None:
                     continue
 
@@ -56,7 +45,6 @@ def run():
                 if symbol not in htf_reported:
                     htf_bias[symbol] = bias
                     htf_reported.add(symbol)
-
                     send_telegram_message(
                         f"📊 HTF STRUCTURE\n\n"
                         f"Symbol: {symbol}\n"
@@ -69,12 +57,10 @@ def run():
                     continue
 
                 ltf_candles = fetch_candles(symbol, LTF, limit=100)
-
                 if not ltf_candles or len(ltf_candles) < 30:
                     continue
 
                 entry = analyse_ltf_entry(
-                    symbol=symbol,
                     candles=ltf_candles,
                     htf_bias=htf_bias[symbol]
                 )
@@ -86,7 +72,6 @@ def run():
                 print(f"Error on {symbol}: {e}")
 
         time.sleep(LOOP_DELAY)
-
 
 # ==============================
 # ENTRY POINT
