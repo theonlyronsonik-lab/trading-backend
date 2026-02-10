@@ -1,110 +1,55 @@
 import time
-from datetime import datetime
-
-from config import SYMBOLS, HTF, LTF
-from data import get_candles
-from entry import find_ltf_entry
-from notifier import send_message
+import requests
+from config import *
+from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
 
 
-# =========================
-# SETTINGS
-# =========================
-HTF_CANDLES = 200
-LTF_CANDLES = 200
-SLEEP_TIME = 300  # 5 minutes
+def send_telegram(msg):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    data = {"chat_id": CHAT_ID, "text": msg}
+    requests.post(url, data=data)
 
 
-# =========================
-# STATE
-# =========================
+send_telegram("🤖 Ron_Market Scanner is LIVE.\nAnalysing existing HTF structure...")
+
+
 htf_bias = {}
-sent_entries = set()
+
+# 🔥 ANALYSE EXISTING HTF IMMEDIATELY
+for symbol in SYMBOLS:
+    htf_candles = fetch_candles(symbol, HTF, HTF_CANDLES)
+    bias = analyse_htf_structure(htf_candles)
+    htf_bias[symbol] = bias
+
+    send_telegram(
+        f"📊 HTF ANALYSIS (STARTUP)\n"
+        f"Symbol: {symbol}\n"
+        f"Timeframe: {HTF}\n"
+        f"Candles: {len(htf_candles)}\n"
+        f"Bias: {bias}"
+    )
 
 
-# =========================
-# HTF STRUCTURE (HH/HL, LH/LL)
-# =========================
-def detect_htf_structure(candles):
-    if len(candles) < 50:
-        return None
-
-    highs = [c["high"] for c in candles[-20:]]
-    lows = [c["low"] for c in candles[-20:]]
-
-    # Higher Highs + Higher Lows
-    if highs[-1] > highs[0] and lows[-1] > lows[0]:
-        return "BULLISH"
-
-    # Lower Highs + Lower Lows
-    if highs[-1] < highs[0] and lows[-1] < lows[0]:
-        return "BEARISH"
-
-    return None
-
-
-# =========================
-# MAIN
-# =========================
-def run():
-    send_message("🤖 Bot is LIVE.")
-
-    # -------- HTF ANALYSIS ON STARTUP --------
+# 🔁 CONTINUOUS LTF SCAN
+while True:
     for symbol in SYMBOLS:
-        try:
-            candles = get_candles(symbol, HTF, limit=HTF_CANDLES)
+        bias = htf_bias.get(symbol)
+        if bias in ["NO_DATA", "RANGE"]:
+            continue
 
-            if not candles:
-                continue
+        ltf_candles = fetch_candles(symbol, LTF, LTF_CANDLES)
+        setup = analyse_ltf_entry(ltf_candles, bias)
 
-            bias = detect_htf_structure(candles)
+        if setup:
+            send_telegram(
+                f"🚨 TRADE SETUP FOUND\n\n"
+                f"Symbol: {symbol}\n"
+                f"Bias ({HTF}): {bias}\n"
+                f"Entry TF: {LTF}\n\n"
+                f"📍 Entry: {setup['entry']}\n"
+                f"🛑 SL: {setup['sl']}\n"
+                f"🎯 TP: {setup['tp']}\n\n"
+                f"⚠️ Wait for confirmation. No FOMO."
+            )
 
-            if bias:
-                htf_bias[symbol] = bias
-
-                send_message(
-                    f"📊 HTF STRUCTURE\n\n"
-                    f"Symbol: {symbol}\n"
-                    f"Bias ({HTF}): {bias}"
-                )
-
-        except Exception as e:
-            print(f"HTF error on {symbol}: {e}")
-
-    # -------- CONTINUOUS LTF SCANNING --------
-    while True:
-        for symbol in SYMBOLS:
-            try:
-                bias = htf_bias.get(symbol)
-
-                if not bias:
-                    continue
-
-                if symbol in sent_entries:
-                    continue
-
-                entry = find_ltf_entry(symbol, bias, LTF)
-
-                if entry:
-                    send_message(
-                        f"🚨 TRADE SETUP FOUND\n\n"
-                        f"Symbol: {symbol}\n"
-                        f"Bias ({HTF}): {bias}\n"
-                        f"Entry TF: {LTF}\n\n"
-                        f"📍 Entry Zone: {entry['entry_zone']}\n"
-                        f"🛑 Stop Loss: {entry['sl']}\n"
-                        f"🎯 Take Profit: {entry['tp']}\n\n"
-                        f"⚠️ Wait for price to react inside the zone.\n"
-                        f"No FOMO. No market orders."
-                    )
-
-                    sent_entries.add(symbol)
-
-            except Exception as e:
-                print(f"LTF error on {symbol}: {e}")
-
-        time.sleep(SLEEP_TIME)
-
-
-if __name__ == "__main__":
-    run()
+    time.sleep(SCAN_INTERVAL)
