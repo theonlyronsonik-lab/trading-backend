@@ -17,30 +17,32 @@ LOOP_SLEEP = 300  # 5 minutes
 # =============================
 # STATE
 # =============================
-last_htf_check = {}
 last_htf_bias = {}
+last_htf_check = {}
 ltf_sent = set()
 
 
 # =============================
-# HTF BIAS DETECTION
+# HTF TREND-BASED BIAS
 # =============================
 def detect_htf_bias(candles):
-    if len(candles) < 50:
+    """
+    Determines current HTF trend.
+    Always returns BULLISH, BEARISH, or RANGE.
+    """
+    if len(candles) < 30:
         return None
 
-    highs = [c["high"] for c in candles[-20:]]
-    lows = [c["low"] for c in candles[-20:]]
+    highs = [c["high"] for c in candles[-10:]]
+    lows = [c["low"] for c in candles[-10:]]
 
-    last_close = candles[-1]["close"]
-
-    if last_close > max(highs[:-1]):
+    if highs[-1] > highs[0] and lows[-1] > lows[0]:
         return "BULLISH"
 
-    if last_close < min(lows[:-1]):
+    if highs[-1] < highs[0] and lows[-1] < lows[0]:
         return "BEARISH"
 
-    return None
+    return "RANGE"
 
 
 # =============================
@@ -49,16 +51,16 @@ def detect_htf_bias(candles):
 def run():
     send_message("🤖 Bot is LIVE.")
 
-    # ---------- STARTUP HTF ANALYSIS ----------
+    # --------- STARTUP HTF ANALYSIS ---------
     for symbol in SYMBOLS:
         try:
-            htf_candles = get_candles(symbol, HTF, limit=200)
+            candles = get_candles(symbol, HTF, limit=200)
             last_htf_check[symbol] = datetime.utcnow()
 
-            if not htf_candles:
+            if not candles:
                 continue
 
-            bias = detect_htf_bias(htf_candles)
+            bias = detect_htf_bias(candles)
 
             if bias:
                 last_htf_bias[symbol] = bias
@@ -73,33 +75,39 @@ def run():
         except Exception as e:
             print(f"Startup HTF error on {symbol}: {e}")
 
-    # ---------- MAIN LOOP ----------
+    # --------- MAIN LOOP ---------
     while True:
         now = datetime.utcnow()
 
         for symbol in SYMBOLS:
             try:
-                # ---------- HTF RECHECK ----------
+                # ----- HTF RECHECK (bias flip only) -----
                 if now - last_htf_check.get(symbol, now) >= HTF_CHECK_INTERVAL:
-                    htf_candles = get_candles(symbol, HTF, limit=200)
+                    candles = get_candles(symbol, HTF, limit=200)
                     last_htf_check[symbol] = now
 
-                    bias = detect_htf_bias(htf_candles)
+                    if candles:
+                        new_bias = detect_htf_bias(candles)
+                        old_bias = last_htf_bias.get(symbol)
 
-                    if bias and last_htf_bias.get(symbol) != bias:
-                        last_htf_bias[symbol] = bias
-                        ltf_sent.discard(symbol)
+                        if new_bias and new_bias != old_bias:
+                            last_htf_bias[symbol] = new_bias
+                            ltf_sent.discard(symbol)
 
-                        send_message(
-                            f"🔄 HTF BIAS UPDATED\n"
-                            f"Symbol: {symbol}\n"
-                            f"Timeframe: {HTF}\n"
-                            f"New Bias: {bias}"
-                        )
+                            send_message(
+                                f"🔄 HTF BIAS UPDATED\n"
+                                f"Symbol: {symbol}\n"
+                                f"Timeframe: {HTF}\n"
+                                f"New Bias: {new_bias}"
+                            )
 
-                # ---------- LTF ----------
+                # ----- LTF ENTRIES -----
                 bias = last_htf_bias.get(symbol)
-                if not bias or symbol in ltf_sent:
+
+                if bias in (None, "RANGE"):
+                    continue
+
+                if symbol in ltf_sent:
                     continue
 
                 entry = find_ltf_entry(symbol, bias, LTF)
