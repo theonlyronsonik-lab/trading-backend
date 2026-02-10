@@ -1,5 +1,5 @@
 import requests
-from config import TWELVEDATA_API_KEY
+from config import TWELVE_API_KEY
 
 # -------------------------
 # Fetch Candles (TwelveData API)
@@ -10,7 +10,7 @@ def fetch_candles(symbol, timeframe, limit=100):
         "symbol": symbol,
         "interval": timeframe,
         "outputsize": limit,
-        "apikey": TWELVEDATA_API_KEY
+        "apikey": TWELVE_API_KEY
     }
 
     try:
