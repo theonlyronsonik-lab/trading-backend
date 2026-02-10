@@ -1,52 +1,37 @@
-import MetaTrader5 as mt5
-from datetime import datetime
 import time
+import requests
+from config import TWELVE_DATA_API_KEY
 
+LAST_API_CALL = 0
+MIN_API_INTERVAL = 8  # seconds (8 calls/min max)
 
-# =============================
-# INIT MT5
-# =============================
-if not mt5.initialize():
-    raise RuntimeError("❌ MT5 initialization failed")
-
-
-# =============================
-# TIMEFRAME MAP
-# =============================
-TF_MAP = {
-    "1min": mt5.TIMEFRAME_M1,
-    "5min": mt5.TIMEFRAME_M5,
-    "15min": mt5.TIMEFRAME_M15,
-    "30min": mt5.TIMEFRAME_M30,
-    "1h": mt5.TIMEFRAME_H1,
-    "4h": mt5.TIMEFRAME_H4,
-    "1d": mt5.TIMEFRAME_D1,
-}
-
-
-# =============================
-# GET CANDLES
-# =============================
 def get_candles(symbol, timeframe, limit=100):
-    if timeframe not in TF_MAP:
-        raise ValueError(f"Unsupported timeframe: {timeframe}")
+    global LAST_API_CALL
 
-    tf = TF_MAP[timeframe]
+    now = time.time()
+    elapsed = now - LAST_API_CALL
 
-    rates = mt5.copy_rates_from_pos(symbol, tf, 0, limit)
+    if elapsed < MIN_API_INTERVAL:
+        time.sleep(MIN_API_INTERVAL - elapsed)
 
-    if rates is None or len(rates) == 0:
-        return []
+    url = "https://api.twelvedata.com/time_series"
+    params = {
+        "symbol": symbol,
+        "interval": timeframe,
+        "limit": limit,
+        "apikey": TWELVE_DATA_API_KEY
+    }
 
-    candles = []
-    for r in rates:
-        candles.append({
-            "time": datetime.fromtimestamp(r["time"]),
-            "open": float(r["open"]),
-            "high": float(r["high"]),
-            "low": float(r["low"]),
-            "close": float(r["close"]),
-            "volume": int(r["tick_volume"])
-        })
+    response = requests.get(url, params=params)
+    LAST_API_CALL = time.time()
 
-    return candles
+    data = response.json()
+
+    if data.get("status") == "error":
+        if data.get("code") == 429:
+            print("⚠️ API limit hit. Sleeping 60 seconds...")
+            time.sleep(60)
+            return None
+        raise Exception(f"TwelveData error: {data}")
+
+    return data.get("values", [])
