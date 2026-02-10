@@ -1,12 +1,10 @@
+# =========================
+# entry.py
+# =========================
 import requests
-from config import TWELVE_API_KEY
-
-BASE_URL = "https://api.twelvedata.com/time_series"
+from config import TWELVE_API_KEY, BASE_URL
 
 
-# -------------------------
-# DATA FETCH
-# -------------------------
 def fetch_candles(symbol, timeframe, limit=100):
     params = {
         "symbol": symbol,
@@ -15,90 +13,68 @@ def fetch_candles(symbol, timeframe, limit=100):
         "outputsize": limit
     }
     r = requests.get(BASE_URL, params=params).json()
+
+    if r.get("status") == "error":
+        print("API ERROR:", r)
+        return []
+
     return r.get("values", [])
 
 
-# -------------------------
-# SWING DETECTION
-# -------------------------
-def get_swings(candles):
-    highs = []
-    lows = []
-
-    for i in range(2, len(candles) - 2):
-        h = float(candles[i]["high"])
-        l = float(candles[i]["low"])
-
-        if h > float(candles[i - 1]["high"]) and h > float(candles[i + 1]["high"]):
-            highs.append(h)
-
-        if l < float(candles[i - 1]["low"]) and l < float(candles[i + 1]["low"]):
-            lows.append(l)
-
-    return highs, lows
-
-
-# -------------------------
-# HTF STRUCTURE (HH / HL)
-# -------------------------
 def analyse_htf_structure(candles):
-    if len(candles) < 30:
+    if len(candles) < 10:
         return "NO_DATA"
 
-    highs, lows = get_swings(candles)
+    highs = [float(c["high"]) for c in candles]
+    lows = [float(c["low"]) for c in candles]
 
-    if len(highs) < 2 or len(lows) < 2:
-        return "NO_DATA"
-
-    h1, h2 = highs[-2], highs[-1]
-    l1, l2 = lows[-2], lows[-1]
-
-    if h2 > h1 and l2 > l1:
-        return "BULLISH"
-
-    if h2 < h1 and l2 < l1:
+    if highs[-1] < highs[-5] and lows[-1] < lows[-5]:
         return "BEARISH"
+    if highs[-1] > highs[-5] and lows[-1] > lows[-5]:
+        return "BULLISH"
 
     return "RANGE"
 
 
-# -------------------------
-# LTF ENTRY ANALYSIS
-# -------------------------
 def analyse_ltf_entry(candles, htf_bias):
-    """
-    Basic LTF logic:
-    - Align with HTF bias
-    - Look for simple BOS / CHOCH via swing breaks
-    """
-
-    if htf_bias not in ["BULLISH", "BEARISH"]:
+    if len(candles) < 20:
         return None
 
-    if len(candles) < 30:
-        return None
+    highs = [float(c["high"]) for c in candles]
+    lows = [float(c["low"]) for c in candles]
+    closes = [float(c["close"]) for c in candles]
 
-    highs, lows = get_swings(candles)
+    last_close = closes[-1]
 
-    if len(highs) < 2 or len(lows) < 2:
-        return None
+    # --- simple support / resistance ---
+    resistance = max(highs[-20:-1])
+    support = min(lows[-20:-1])
 
-    last_close = float(candles[0]["close"])
+    # --- BOS / CHOCH logic ---
+    if htf_bias == "BEARISH" and last_close < support:
+        entry = last_close
+        sl = resistance
+        tp = entry - (sl - entry) * 2
+        return {
+            "direction": "SELL",
+            "bias": htf_bias,
+            "entry": round(entry, 5),
+            "sl": round(sl, 5),
+            "tp": round(tp, 5),
+            "reason": "LTF BOS below support in HTF bearish structure"
+        }
 
-    # BUY LOGIC
-    if htf_bias == "BULLISH":
-        if last_close > highs[-1]:
-            return {
-                "direction": "BUY",
-                "reason": "LTF BOS in HTF bullish structure"
-            }
-
-    # SELL LOGIC
-    if htf_bias == "BEARISH":
-        if last_close < lows[-1]:
-            return {
-                "direction": "SELL",
-                "reason": "LTF BOS in HTF bearish structure"
-            }
+    if htf_bias == "BULLISH" and last_close > resistance:
+        entry = last_close
+        sl = support
+        tp = entry + (entry - sl) * 2
+        return {
+            "direction": "BUY",
+            "bias": htf_bias,
+            "entry": round(entry, 5),
+            "sl": round(sl, 5),
+            "tp": round(tp, 5),
+            "reason": "LTF BOS above resistance in HTF bullish structure"
+        }
 
     return None
