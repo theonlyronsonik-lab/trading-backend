@@ -1,62 +1,56 @@
-from data import get_candles
-from config import LOOKBACK_LTF, RR_RATIO
+import requests
+from config import TWELVE_API_KEY
+
+BASE_URL = "https://api.twelvedata.com/time_series"
 
 
-def find_ltf_entry(symbol, bias, timeframe):
-    candles = get_candles(symbol, timeframe, limit=LOOKBACK_LTF)
-
-    if not candles or len(candles) < 50:
-        return None
-
-    highs = [c["high"] for c in candles]
-    lows = [c["low"] for c in candles]
-    closes = [c["close"] for c in candles]
-
-    # -------------------------
-    # 1. Detect BOS
-    # -------------------------
-    recent_high = max(highs[-20:-5])
-    recent_low = min(lows[-20:-5])
-    last_close = closes[-1]
-
-    if bias == "BULLISH" and last_close <= recent_high:
-        return None
-
-    if bias == "BEARISH" and last_close >= recent_low:
-        return None
-
-    # -------------------------
-    # 2. Detect CHoCH (simple)
-    # -------------------------
-    prev_high = highs[-10]
-    prev_low = lows[-10]
-
-    if bias == "BULLISH" and prev_low < lows[-20]:
-        return None
-
-    if bias == "BEARISH" and prev_high > highs[-20]:
-        return None
-
-    # -------------------------
-    # 3. Define Supply / Demand
-    # -------------------------
-    if bias == "BULLISH":
-        zone_low = min(lows[-15:])
-        zone_high = max(lows[-15:])
-        entry = (zone_low + zone_high) / 2
-        sl = zone_low
-        tp = entry + (entry - sl) * RR_RATIO
-
-    else:  # BEARISH
-        zone_high = max(highs[-15:])
-        zone_low = min(highs[-15:])
-        entry = (zone_low + zone_high) / 2
-        sl = zone_high
-        tp = entry - (sl - entry) * RR_RATIO
-
-    return {
-        "entry_zone": f"{round(zone_low, 5)} → {round(zone_high, 5)}",
-        "entry": round(entry, 5),
-        "sl": round(sl, 5),
-        "tp": round(tp, 5),
+def fetch_candles(symbol, timeframe, limit):
+    params = {
+        "symbol": symbol,
+        "interval": timeframe,
+        "apikey": TWELVE_API_KEY,
+        "outputsize": limit
     }
+    r = requests.get(BASE_URL, params=params).json()
+    return r.get("values", [])
+
+
+def get_swings(candles):
+    highs = []
+    lows = []
+
+    for i in range(2, len(candles) - 2):
+        h = float(candles[i]["high"])
+        l = float(candles[i]["low"])
+
+        if h > float(candles[i - 1]["high"]) and h > float(candles[i + 1]["high"]):
+            highs.append(h)
+
+        if l < float(candles[i - 1]["low"]) and l < float(candles[i + 1]["low"]):
+            lows.append(l)
+
+    return highs, lows
+
+
+def analyse_htf_structure(candles):
+    if len(candles) < 30:
+        return "NO_DATA"
+
+    highs, lows = get_swings(candles)
+
+    if len(highs) < 2 or len(lows) < 2:
+        return "NO_DATA"
+
+    # last two swings
+    h1, h2 = highs[-2], highs[-1]
+    l1, l2 = lows[-2], lows[-1]
+
+    # HH + HL
+    if h2 > h1 and l2 > l1:
+        return "BULLISH"
+
+    # LH + LL
+    if h2 < h1 and l2 < l1:
+        return "BEARISH"
+
+    return "RANGE"
