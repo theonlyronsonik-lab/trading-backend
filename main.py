@@ -8,10 +8,13 @@ from notifier import send_message
 
 
 # =============================
-# CONFIG (API SAFE)
+# CONFIG
 # =============================
-HTF_CHECK_INTERVAL = timedelta(hours=1)   # VERY SAFE
-LOOP_SLEEP = 300                          # 5 minutes
+HTF_CHECK_INTERVAL = timedelta(hours=1)
+LOOP_SLEEP = 300  # 5 minutes
+
+LONDON_SESSION = (7, 10)   # UTC
+NY_SESSION = (13, 16)     # UTC
 
 
 # =============================
@@ -23,8 +26,16 @@ ltf_sent = set()
 
 
 # =============================
-# HTF BIAS
+# HELPERS
 # =============================
+def in_trading_session():
+    hour = datetime.utcnow().hour
+    return (
+        LONDON_SESSION[0] <= hour <= LONDON_SESSION[1] or
+        NY_SESSION[0] <= hour <= NY_SESSION[1]
+    )
+
+
 def detect_htf_bias(candles):
     if len(candles) < 50:
         return None
@@ -45,9 +56,13 @@ def detect_htf_bias(candles):
 # MAIN
 # =============================
 def run():
-    send_message("🤖 Bot is LIVE.")
+    send_message("🤖 Bot is LIVE.\n⏱ Running only during London & NY sessions.")
 
     while True:
+        if not in_trading_session():
+            time.sleep(600)  # sleep 10 minutes outside sessions
+            continue
+
         now = datetime.utcnow()
 
         for symbol in SYMBOLS:
@@ -65,12 +80,12 @@ def run():
 
                     bias = detect_htf_bias(htf_candles)
 
-                    if bias and last_htf_bias.get(symbol) != bias:
+                    if bias:
                         last_htf_bias[symbol] = bias
                         ltf_sent.discard(symbol)
 
                         send_message(
-                            f"📈 HTF BIAS\n"
+                            f"📈 HTF STATUS\n"
                             f"Symbol: {symbol}\n"
                             f"Timeframe: {HTF}\n"
                             f"Bias: {bias}"
@@ -78,10 +93,7 @@ def run():
 
                 # ---------- LTF ----------
                 bias = last_htf_bias.get(symbol)
-                if not bias:
-                    continue
-
-                if symbol in ltf_sent:
+                if not bias or symbol in ltf_sent:
                     continue
 
                 entry = find_ltf_entry(symbol, bias, LTF)
@@ -106,5 +118,5 @@ def run():
         time.sleep(LOOP_SLEEP)
 
 
-if __name__ == "__main__":
+if name == "main":
     run()
