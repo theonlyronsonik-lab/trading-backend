@@ -8,7 +8,7 @@ from entry import (
     analyse_htf_structure,
     analyse_ltf_entry
 )
-from telegram_utils import send_telegram_message
+from telegram_bots import send_telegram_message
 
 
 def run():
