@@ -1,6 +1,5 @@
 import time
 from datetime import datetime
-
 from config import SYMBOLS, HTF, LTF, LOOP_DELAY
 from entry import (
     fetch_candles,
