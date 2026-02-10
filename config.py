@@ -7,9 +7,9 @@ TWELVE_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 BASE_URL = "https://api.twelvedata.com/time_series"
 
 # ===== MARKET SETTINGS =====
-SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD"]
+SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD","AUD/CAD"]
 
-HTF = "1h"
-LTF = "5min"
+HTF = "4h"
+LTF = "15min"
 
 LOOP_DELAY = 60  # seconds
