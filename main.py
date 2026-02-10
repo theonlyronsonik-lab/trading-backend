@@ -5,10 +5,10 @@ from telegram_bot import send_telegram_message
 # -------------------------
 # SETTINGS
 # -------------------------
-SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD"]
+SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD", "AUD/CAD"]
 
-HTF_TIMEFRAME = "1h"
-LTF_TIMEFRAME = "5min"
+HTF_TIMEFRAME = "4h"
+LTF_TIMEFRAME = "15min"
 
 SCAN_INTERVAL = 60  # seconds (checks every minute)
 
