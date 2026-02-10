@@ -6,8 +6,8 @@ TWELVE_DATA_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 # =========================
 # SYMBOLS & TIMEFRAMES
 # =========================
-SYMBOLS = ["XAU/USD,"
-           "EUR/USD,"
+SYMBOLS = ["XAUUSD,"
+           "EURUSD,"
             ]
 
 HTF = "4h"      # Higher timeframe
