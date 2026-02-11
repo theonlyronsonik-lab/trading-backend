@@ -1,5 +1,5 @@
 import requests
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
 
 # -------------------------
 # SEND TELEGRAM MESSAGE
