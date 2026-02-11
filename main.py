@@ -8,7 +8,7 @@ from telegram_bot import send_telegram_message
 SYMBOLS = ["GBP/USD", "EUR/USD", "AUD/CAD","SILVER", "USD/JPY"]
 
 HTF_TIMEFRAME = "30min"
-LTF_TIMEFRAME = "3min"
+LTF_TIMEFRAME = "5min"
 
 SCAN_INTERVAL = 60  # seconds (checks every minute)
 
