@@ -1,67 +1,116 @@
 import time
-from config import PAIRS, HTF, LTF, SCAN_INTERVAL
-from market_data import fetch_data, fetch_htf_cached
-from structure import get_htf_bias, detect_choch
-from entry import retest_entry
-from risk import calculate_dynamic_sl, calculate_tp
-from zones import get_next_swing_high, get_next_swing_low
-from notifier import send_message
+from datetime import datetime
+from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY, HTF_SECONDS
+from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
+from telegram_bot import send_telegram_message
 
+# ==============================
+# STATE TRACKING PER PAIR
+# ==============================
+PAIR_STATE = {}
 
-HTF_SECONDS = 14400  # 4H
+# ==============================
+# FETCH HTF WITH CACHING (Free Plan)
+# ==============================
+LAST_HTF_FETCH = {}
 
+def fetch_htf_cached(symbol, tf, tf_seconds):
+    now = time.time()
+    last_fetch = LAST_HTF_FETCH.get(symbol, 0)
 
+    if now - last_fetch < tf_seconds:
+        return None  # Skip fetch to save API calls
+
+    candles = fetch_candles(symbol, tf, limit=100, api_key=API_KEY)
+    if candles:
+        LAST_HTF_FETCH[symbol] = now
+    return candles
+
+# ==============================
+# SCAN FUNCTION
+# ==============================
 def scan_pair(symbol):
-    print(f"Scanning {symbol}")
+    if symbol not in PAIR_STATE:
+        PAIR_STATE[symbol] = {
+            "bias": None,
+            "choch_alerted": False,
+            "entry_alerted": False
+        }
 
-    htf_data = fetch_htf_cached(symbol, HTF, HTF_SECONDS)
-    if not htf_data:
+    # -------- HTF BIAS --------
+    htf_candles = fetch_htf_cached(symbol, HTF, HTF_SECONDS)
+    if not htf_candles:
         return
 
-    bias = get_htf_bias(htf_data)
+    bias = analyse_htf_structure(htf_candles)
+    if bias and bias != PAIR_STATE[symbol]["bias"]:
+        PAIR_STATE[symbol]["bias"] = bias
+        PAIR_STATE[symbol]["choch_alerted"] = False
+        PAIR_STATE[symbol]["entry_alerted"] = False
+
+        send_telegram_message(
+            f"🔎 {symbol} HTF Bias Update\n\n"
+            f"HTF: {HTF}\n"
+            f"Bias: {bias.upper()}\n"
+            f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+        )
+
     if not bias:
         return
 
-    ltf_data = fetch_data(symbol, LTF)
-    if not ltf_data:
+    # -------- LTF CHOCH --------
+    ltf_candles = fetch_candles(symbol, LTF, limit=100, api_key=API_KEY)
+    if not ltf_candles:
         return
 
-    if not detect_choch(ltf_data, bias):
+    choch_entry = analyse_ltf_entry(ltf_candles, bias)
+    if choch_entry and not PAIR_STATE[symbol]["choch_alerted"]:
+        PAIR_STATE[symbol]["choch_alerted"] = True
+        send_telegram_message(
+            f"⚡ {symbol} LTF CHoCH Detected\n\n"
+            f"Direction: {bias.upper()}\n"
+            f"Waiting for retest confirmation..."
+        )
+
+    if not choch_entry:
         return
 
-    entry = retest_entry(ltf_data, bias)
-    if not entry:
+    # -------- ENTRY ALERT --------
+    if PAIR_STATE[symbol]["entry_alerted"]:
         return
 
-    if bias == "bullish":
-        swing = min([float(c["low"]) for c in ltf_data[-5:]])
-        tp_target = get_next_swing_high(htf_data)
-    else:
-        swing = max([float(c["high"]) for c in ltf_data[-5:]])
-        tp_target = get_next_swing_low(htf_data)
+    entry = choch_entry["entry"]
+    sl = choch_entry["sl"]
+    tp = choch_entry["tp"]
 
-    sl = calculate_dynamic_sl(entry, swing, bias)
-    tp = calculate_tp(entry, sl, bias, tp_target)
+    PAIR_STATE[symbol]["entry_alerted"] = True
+    send_telegram_message(
+        f"🚀 TRADE SETUP CONFIRMED\n\n"
+        f"Pair: {symbol}\n"
+        f"Bias: {bias.upper()}\n"
+        f"Entry: {round(entry, 5)}\n"
+        f"SL: {round(sl, 5)}\n"
+        f"TP: {round(tp, 5)}\n"
+        f"R:R ≈ {round((tp - entry)/(entry - sl), 2) if bias=='bullish' else round((entry - tp)/(sl - entry),2)}"
+    )
 
-    message = f"""
-PAIR: {symbol}
-BIAS: {bias.upper()}
+# ==============================
+# MAIN LOOP
+# ==============================
+def run():
+    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
+    print("Bot started at", datetime.utcnow())
 
-ENTRY: {entry}
-SL: {sl}
-TP: {tp}
-"""
-
-    send_message(message)
-
-
-def main():
     while True:
-        for pair in PAIRS:
-            scan_pair(pair)
+        for symbol in SYMBOLS:
+            try:
+                scan_pair(symbol)
+            except Exception as e:
+                print(f"Error scanning {symbol}: {e}")
+        time.sleep(LOOP_DELAY)
 
-        time.sleep(SCAN_INTERVAL)
-
-
+# ==============================
+# ENTRY POINT
+# ==============================
 if __name__ == "__main__":
-    main()
+    run()
