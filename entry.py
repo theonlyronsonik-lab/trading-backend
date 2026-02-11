@@ -1,10 +1,11 @@
 import requests
 from datetime import datetime
+from config import TWELVEDATA_API_KEY  # <-- import API key from config
 
 # -------------------------
 # FETCH CANDLES
 # -------------------------
-def fetch_candles(symbol, interval, limit=100, api_key=None):
+def fetch_candles(symbol, interval, limit=100):
     """
     Fetch candle data from TwelveData API.
     Returns list of candles with 'open', 'high', 'low', 'close', 'datetime'.
@@ -14,7 +15,7 @@ def fetch_candles(symbol, interval, limit=100, api_key=None):
         "symbol": symbol,
         "interval": interval,
         "outputsize": limit,
-        "apikey": TWELVEDATA_API_KEY 
+        "apikey": TWELVEDATA_API_KEY  # <-- use the key from config.py
     }
     try:
         response = requests.get(url, params=params, timeout=10)
@@ -41,10 +42,6 @@ def fetch_candles(symbol, interval, limit=100, api_key=None):
 # HTF STRUCTURE ANALYSIS
 # -------------------------
 def analyse_htf_structure(candles):
-    """
-    Determine HTF bias based on HH/HL for bullish and LH/LL for bearish.
-    Returns: "BULLISH", "BEARISH", or "RANGE"
-    """
     if len(candles) < 10:
         return None
 
@@ -67,10 +64,6 @@ def analyse_htf_structure(candles):
 # LTF ENTRY ANALYSIS
 # -------------------------
 def analyse_ltf_entry(candles, htf_bias):
-    """
-    Detect CHoCH on LTF and calculate entry, SL, TP.
-    Returns dict with entry, sl, tp or None if no valid entry.
-    """
     if len(candles) < 30:
         return None
 
@@ -79,11 +72,10 @@ def analyse_ltf_entry(candles, htf_bias):
     closes = [c["close"] for c in candles]
     last_close = closes[-1]
 
-    # --- previous structure ---
     prev_high = max(highs[-10:-5])
     prev_low = min(lows[-10:-5])
 
-    # -------- BEARISH SETUP --------
+    # BEARISH SETUP
     if htf_bias == "BEARISH":
         if last_close < prev_low:
             entry = last_close
@@ -91,7 +83,7 @@ def analyse_ltf_entry(candles, htf_bias):
             tp = entry - 2 * (sl - entry)
             return {"entry": entry, "sl": sl, "tp": tp}
 
-    # -------- BULLISH SETUP --------
+    # BULLISH SETUP
     if htf_bias == "BULLISH":
         if last_close > prev_high:
             entry = last_close
