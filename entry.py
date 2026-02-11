@@ -1,6 +1,7 @@
 import requests
 from config import TWELVE_API_KEY
 
+RR = 4
 # -------------------------
 # Fetch Candles (TwelveData API)
 # -------------------------
@@ -103,7 +104,7 @@ def analyse_ltf_entry(symbol, candles, htf_bias):
             if last_close < prev_low and last_close < r:
                 entry = last_close
                 sl = r
-                tp = entry - 2 * (sl - entry)
+                tp = entry - 4 * (sl - entry)
                 return {
                     "direction": "SELL",
                     "bias": htf_bias,
@@ -121,7 +122,7 @@ def analyse_ltf_entry(symbol, candles, htf_bias):
             if last_close > prev_high and last_close > s:
                 entry = last_close
                 sl = s
-                tp = entry + 2 * (entry - sl)
+                tp = entry + 4 * (entry - sl)
                 return {
                 "direction": "BUY",
                     "bias": htf_bias,
