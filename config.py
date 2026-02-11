@@ -21,12 +21,12 @@ SYMBOLS = [
 HTF = "1h"
 LTF = "5min"
 
-HTF_SECONDS = 3600  # 4H
+HTF_SECONDS = 3600  # 1H
 
 # ==============================
 # SCANNING CONTROL
 # ==============================
-SCAN_INTERVAL = 60  # seconds between scans
+LOOP_DELAY = 60  # seconds between scans
 HTF_CACHE = {}      # stores last HTF fetch time per pair
 
 # ==============================
@@ -40,4 +40,4 @@ RR_MIN = 2
 # ==============================
 TELEGRAM_BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
 TELEGRAM_CHAT_ID = "6599172354"
-PAIR_STATE = {}
+
