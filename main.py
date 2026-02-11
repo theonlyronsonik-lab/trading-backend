@@ -5,7 +5,7 @@ from telegram_bot import send_telegram_message
 # -------------------------
 # SETTINGS
 # -------------------------
-SYMBOLS = ["GBP/USD", "EUR/USD", "AUD/CAD","SILVER", "USD/JPY"]
+SYMBOLS = ["GBP/USD", "EUR/USD", "AUD/CAD","XAU/USD", "USD/JPY"]
 
 HTF_TIMEFRAME = "30min"
 LTF_TIMEFRAME = "5min"
