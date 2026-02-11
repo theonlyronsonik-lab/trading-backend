@@ -12,7 +12,6 @@ TELEGRAM_CHAT_ID = "6599172354"
 # Symbols to scan
 SYMBOLS = [
     "EUR/USD",
-    "GBP/USD",
     "XAU/USD",
 ]
 
