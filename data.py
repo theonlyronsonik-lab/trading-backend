@@ -1,6 +1,6 @@
 import time
 import requests
-from config import TWELVE_DATA_API_KEY
+from config import TWELVEDATA_API_KEY
 
 LAST_API_CALL = 0
 MIN_API_INTERVAL = 8  # seconds (8 calls/min max)
@@ -19,7 +19,7 @@ def get_candles(symbol, timeframe, limit=100):
         "symbol": symbol,
         "interval": timeframe,
         "limit": limit,
-        "apikey": TWELVE_DATA_API_KEY
+        "apikey": TWELVEDATA_API_KEY
     }
 
     response = requests.get(url, params=params)
