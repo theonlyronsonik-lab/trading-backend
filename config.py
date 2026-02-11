@@ -11,7 +11,7 @@ LTF = "5min"    # Lower Timeframe
 LOOP_DELAY = 60
 
 # TwelveData API Key
-API_KEY = "2c051684da3b481bbf6b068fbaf5767d"
+API_KEY = "d2849e2ab0c042edb97b8276d864a41b"
 
 # Telegram Bot Config
 TELEGRAM_BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
