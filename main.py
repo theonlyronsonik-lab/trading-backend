@@ -57,7 +57,8 @@ def run_bot():
                 entry = analyse_ltf_entry(symbol, ltf_candles, htf_bias)
 
                 if entry:
-                    signal_id = f"{symbol}_{entry['direction']}_{entry['entry']}"
+                    last_candle_time = ltf_candles[-2]["datetime"]
+                    signal_id = f"{symbol}_{last_candle_time}"
 
                     # Prevent duplicate alerts
                     if sent_signals.get(symbol) != signal_id:
