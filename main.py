@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY, HTF_SECONDS
+from config import PAIRS, HTF, LTF, SCAN_INTERVAL, TWELVEDATA_API_KEY, HTF_SECONDS
 from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
 from telegram_bot import send_telegram_message
 
