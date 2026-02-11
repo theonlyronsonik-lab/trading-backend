@@ -107,7 +107,7 @@ def run():
                 scan_pair(symbol)
             except Exception as e:
                 print(f"Error scanning {symbol}: {e}")
-        time.sleep(LOOP_DELAY)
+        time.sleep(SCAN_INTERVAL)
 
 # ==============================
 # ENTRY POINT
