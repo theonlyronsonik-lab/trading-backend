@@ -14,7 +14,6 @@ SYMBOLS = [
     "EUR/USD",
     "GBP/USD",
     "XAU/USD",
-    "AUD/CAD",
 ]
 
 # Timeframes
