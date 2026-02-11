@@ -1,116 +1,185 @@
 import time
 from datetime import datetime
-from config import SYMBOLS , HTF, LTF, SCAN_INTERVAL, API_KEY , HTF_SECONDS
+from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-from telegram_bot import send_telegram_message
+import requests
 
-# ==============================
-# STATE TRACKING PER PAIR
-# ==============================
-PAIR_STATE = {}
+# -------------------------
+# Telegram helper
+# -------------------------
+def send_telegram_message(message):
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+        response = requests.post(url, data=data)
+        response.raise_for_status()
+        print("Message sent:", message)
+    except Exception as e:
+        print("Error sending Telegram message:", e)
 
-# ==============================
-# FETCH HTF WITH CACHING (Free Plan)
-# ==============================
-LAST_HTF_FETCH = {}
+# -------------------------
+# HTF cache
+# -------------------------
+htf_bias = {}
+htf_reported = {}
 
-def fetch_htf_cached(symbol, tf, tf_seconds):
-    now = time.time()
-    last_fetch = LAST_HTF_FETCH.get(symbol, 0)
-
-    if now - last_fetch < tf_seconds:
-        return None  # Skip fetch to save API calls
-
-    candles = fetch_candles(symbol, tf, limit=100, api_key=API_KEY)
-    if candles:
-        LAST_HTF_FETCH[symbol] = now
-    return candles
-
-# ==============================
-# SCAN FUNCTION
-# ==============================
-def scan_pair(symbol):
-    if symbol not in PAIR_STATE:
-        PAIR_STATE[symbol] = {
-            "bias": None,
-            "choch_alerted": False,
-            "entry_alerted": False
-        }
-
-    # -------- HTF BIAS --------
-    htf_candles = fetch_htf_cached(symbol, HTF, HTF_SECONDS)
-    if not htf_candles:
-        return
-
-    bias = analyse_htf_structure(htf_candles)
-    if bias and bias != PAIR_STATE[symbol]["bias"]:
-        PAIR_STATE[symbol]["bias"] = bias
-        PAIR_STATE[symbol]["choch_alerted"] = False
-        PAIR_STATE[symbol]["entry_alerted"] = False
-
-        send_telegram_message(
-            f"🔎 {symbol} HTF Bias Update\n\n"
-            f"HTF: {HTF}\n"
-            f"Bias: {bias.upper()}\n"
-            f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
-        )
-
-    if not bias:
-        return
-
-    # -------- LTF CHOCH --------
-    ltf_candles = fetch_candles(symbol, LTF, limit=100, api_key=API_KEY)
-    if not ltf_candles:
-        return
-
-    choch_entry = analyse_ltf_entry(ltf_candles, bias)
-    if choch_entry and not PAIR_STATE[symbol]["choch_alerted"]:
-        PAIR_STATE[symbol]["choch_alerted"] = True
-        send_telegram_message(
-            f"⚡ {symbol} LTF CHoCH Detected\n\n"
-            f"Direction: {bias.upper()}\n"
-            f"Waiting for retest confirmation..."
-        )
-
-    if not choch_entry:
-        return
-
-    # -------- ENTRY ALERT --------
-    if PAIR_STATE[symbol]["entry_alerted"]:
-        return
-
-    entry = choch_entry["entry"]
-    sl = choch_entry["sl"]
-    tp = choch_entry["tp"]
-
-    PAIR_STATE[symbol]["entry_alerted"] = True
-    send_telegram_message(
-        f"🚀 TRADE SETUP CONFIRMED\n\n"
-        f"Pair: {symbol}\n"
-        f"Bias: {bias.upper()}\n"
-        f"Entry: {round(entry, 5)}\n"
-        f"SL: {round(sl, 5)}\n"
-        f"TP: {round(tp, 5)}\n"
-        f"R:R ≈ {round((tp - entry)/(entry - sl), 2) if bias=='bullish' else round((entry - tp)/(sl - entry),2)}"
-    )
-
-# ==============================
-# MAIN LOOP
-# ==============================
-def run():
+# -------------------------
+# Bot start
+# -------------------------
+def start_bot():
     send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
     print("Bot started at", datetime.utcnow())
 
+# -------------------------
+# Process HTF
+# -------------------------
+def process_htf(symbol):
+    now = time.time()
+    # Only fetch HTF if not cached or cache expired
+    if symbol in htf_reported:
+        if now - htf_reported[symbol] < LOOP_DELAY:
+            return htf_bias[symbol]
+
+    candles = fetch_candles(symbol, HTF, limit=100)
+    if not candles or len(candles) < 20:
+        return None
+
+    bias = analyse_htf_structure(candles)
+    htf_bias[symbol] = bias
+    htf_reported[symbol] = now
+    return bias
+
+# -------------------------
+# Main loop
+# -------------------------
+def run():
+    start_bot()
     while True:
         for symbol in SYMBOLS:
             try:
-                scan_pair(symbol)
+                # ---- HTF ----
+                bias = process_htf(symbol)
+                if bias:
+                    send_telegram_message(f"📊 HTF STRUCTURE\nSymbol: {symbol}\nTimeframe: {HTF}\nBias: {bias}")
+
+                # ---- LTF ----
+                ltf_candles = fetch_candles(symbol, LTF, limit=100)
+                if not ltf_candles or len(ltf_candles) < 20:
+                    continue
+
+                entry = analyse_ltf_entry(ltf_candles, bias)
+                if entry:
+                    msg = (
+                        f"📈 LTF ENTRY\n"
+                        f"Symbol: {symbol}\n"
+                        f"Direction: {entry['direction']}\n"
+                        f"Entry: {entry['entry']}\n"
+                        f"SL: {entry['sl']}\n"
+                        f"TP: {entry['tp']}\n"
+                        f"Reason: {entry['reason']}"
+                    )
+                    send_telegram_message(msg)
+
             except Exception as e:
                 print(f"Error scanning {symbol}: {e}")
-        time.sleep(SCAN_INTERVAL)
 
-# ==============================
-# ENTRY POINT
-# ==============================
+        time.sleep(LOOP_DELAY)
+
+# -------------------------
+# Entry point
+# -------------------------
 if __name__ == "__main__":
     run()
+import time
+from datetime import datetime
+from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
+import requests
+
+# -------------------------
+# Telegram helper
+# -------------------------
+def send_telegram_message(message):
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+        response = requests.post(url, data=data)
+        response.raise_for_status()
+        print("Message sent:", message)
+    except Exception as e:
+        print("Error sending Telegram message:", e)
+
+# -------------------------
+# HTF cache
+# -------------------------
+htf_bias = {}
+htf_reported = {}
+
+# -------------------------
+# Bot start
+# -------------------------
+def start_bot():
+    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
+    print("Bot started at", datetime.utcnow())
+
+# -------------------------
+# Process HTF
+# -------------------------
+def process_htf(symbol):
+    now = time.time()
+    # Only fetch HTF if not cached or cache expired
+    if symbol in htf_reported:
+        if now - htf_reported[symbol] < LOOP_DELAY:
+            return htf_bias[symbol]
+
+    candles = fetch_candles(symbol, HTF, limit=100)
+    if not candles or len(candles) < 20:
+        return None
+
+    bias = analyse_htf_structure(candles)
+    htf_bias[symbol] = bias
+    htf_reported[symbol] = now
+    return bias
+
+# -------------------------
+# Main loop
+# -------------------------
+def run():
+    start_bot()
+    while True:
+        for symbol in SYMBOLS:
+            try:
+                # ---- HTF ----
+                bias = process_htf(symbol)
+                if bias:
+                    send_telegram_message(f"📊 HTF STRUCTURE\nSymbol: {symbol}\nTimeframe: {HTF}\nBias: {bias}")
+
+                # ---- LTF ----
+                ltf_candles = fetch_candles(symbol, LTF, limit=100)
+                if not ltf_candles or len(ltf_candles) < 20:
+                    continue
+
+                entry = analyse_ltf_entry(ltf_candles, bias)
+                if entry:
+                    msg = (
+                        f"📈 LTF ENTRY\n"
+                        f"Symbol: {symbol}\n"
+                        f"Direction: {entry['direction']}\n"
+                        f"Entry: {entry['entry']}\n"
+                        f"SL: {entry['sl']}\n"
+                        f"TP: {entry['tp']}\n"
+                        f"Reason: {entry['reason']}"
+                    )
+                    send_telegram_message(msg)
+
+            except Exception as e:
+                print(f"Error scanning {symbol}: {e}")
+
+        time.sleep(LOOP_DELAY)
+
+# -------------------------
+# Entry point
+# -------------------------
+if __name__ == "__main__":
+    run()
+
