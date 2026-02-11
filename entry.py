@@ -1,164 +1,103 @@
+# entry.py
 import requests
+import pandas as pd
 import time
-from config import API_KEY
+from config import API_KEY, HTF, LTF, RR_RATIO
 
-def fetch_candles(symbol: str, timeframe: str, limit: int = 100):
-    """
-    Fetch historical candle data from TwelveData.
-    Handles free plan limits, errors, and validates symbols.
-    
-    Args:
-        symbol (str): Trading pair, e.g., "EUR/USD", "GBP/USD", "XAU/USD"
-        timeframe (str): Timeframe, e.g., "1min", "5min", "15min", "1h", "4h"
-        limit (int): Number of candles to fetch
-    
-    Returns:
-        list: List of candles as dictionaries with 'open', 'high', 'low', 'close', 'datetime'
-              or None if data cannot be fetched.
-    """
-    base_url = "https://api.twelvedata.com/time_series"
-    
-    params = {
-        "symbol": symbol,
-        "interval": timeframe,
-        "apikey": API_KEY,
-        "outputsize": limit
-    }
+# Cache for HTF and LTF data
+htf_cache = {}
+ltf_cache = {}
 
+def fetch_candles(symbol, interval, outputsize=100):
+    """Fetch candles from TwelveData API with caching"""
+    key = f"{symbol}_{interval}"
+    now = time.time()
+    # Check cache
+    if key in htf_cache and interval == HTF:
+        if now - htf_cache[key]['timestamp'] < 3600:  # 1h for HTF
+            return htf_cache[key]['data']
+    if key in ltf_cache and interval == LTF:
+        if now - ltf_cache[key]['timestamp'] < 300:  # 5min for LTF
+            return ltf_cache[key]['data']
+
+    url = f"https://api.twelvedata.com/time_series?symbol={symbol}&interval={interval}&outputsize={outputsize}&apikey={API_KEY}"
     try:
-        response = requests.get(base_url, params=params, timeout=10)
+        response = requests.get(url)
         data = response.json()
-
-        # Check for errors returned by TwelveData
-        if "status" in data and data["status"] == "error":
-            print(f"TwelveData error for {symbol}: {data.get('message', 'Unknown error')}")
-            return None
-        
-        if "values" not in data or len(data["values"]) == 0:
+        if "values" not in data:
             print(f"No data returned for {symbol}")
             return None
-
-        # Convert candles to correct format
-        candles = [
-            {
-                "datetime": c["datetime"],
-                "open": float(c["open"]),
-                "high": float(c["high"]),
-                "low": float(c["low"]),
-                "close": float(c["close"])
-            }
-            for c in reversed(data["values"])  # oldest first
-        ]
-
-        # Respect free plan rate limit: 1 request/sec
-        time.sleep(1.2)
-
-        return candles
-
-    except requests.exceptions.RequestException as e:
+        df = pd.DataFrame(data["values"])
+        df = df[::-1]  # Oldest first
+        df["close"] = df["close"].astype(float)
+        df["high"] = df["high"].astype(float)
+        df["low"] = df["low"].astype(float)
+        # Save cache
+        if interval == HTF:
+            htf_cache[key] = {'data': df, 'timestamp': now}
+        else:
+            ltf_cache[key] = {'data': df, 'timestamp': now}
+        return df
+    except Exception as e:
         print(f"Error fetching candles for {symbol}: {e}")
         return None
 
-# -------------------------
-# ANALYZE HTF STRUCTURE
-# -------------------------
-def analyse_htf_structure(candles):
-    if not candles or len(candles) < 2:
-        return "RANGE"
+def analyse_htf_structure(df):
+    """Determine HTF bias and last high/low"""
+    if df is None or len(df) < 3:
+        return None, None, None
+    prev_high = df['high'].iloc[-2]
+    prev_low = df['low'].iloc[-2]
+    last_close = df['close'].iloc[-1]
 
-    highs = [float(c["high"]) for c in candles]
-    lows = [float(c["low"]) for c in candles]
-
-    recent_high = highs[-1]
-    prev_high = highs[-2]
-    recent_low = lows[-1]
-    prev_low = lows[-2]
-
-    if recent_high > prev_high and recent_low > prev_low:
-        return "BULLISH"
-    elif recent_high < prev_high and recent_low < prev_low:
-        return "BEARISH"
+    if last_close > prev_high:
+        bias = "BULLISH"
+    elif last_close < prev_low:
+        bias = "BEARISH"
     else:
-        return "RANGE"
+        bias = "RANGE"
+    return bias, prev_high, prev_low
 
-# -------------------------
-# ANALYZE LTF ENTRY
-# -------------------------
-def analyse_ltf_entry(candles, htf_bias):
-    if len(candles) < 10:
+def analyse_ltf_entry(symbol, htf_bias, htf_prev_high, htf_prev_low):
+    """Check for LTF retest entries based on minimum conditions"""
+    df = fetch_candles(symbol, LTF)
+    if df is None:
         return None
 
-    highs = [float(c["high"]) for c in candles]
-    lows = [float(c["low"]) for c in candles]
-    closes = [float(c["close"]) for c in candles]
+    last_close = df['close'].iloc[-1]
+    last_high = df['high'].iloc[-1]
+    last_low = df['low'].iloc[-1]
 
-    last_close = closes[-1]
-
-    prev_high = max(highs[-10:-5])
-    prev_low = min(lows[-10:-5])
-
-    support = min(lows[-10:])
-    resistance = max(highs[-10:])
-
-    # Multi-condition confirmation
     conditions_met = 0
+    entry = None
+    sl = None
+    tp = None
 
-    # Condition 1: Candle retest above previous LTF high for bullish
-    if htf_bias == "BULLISH" and last_close > prev_high and last_close <= resistance:
+    # Example conditions (you can expand)
+    # 1. Candle closes above/below LTF high/low (CHoCH)
+    if htf_bias == "BULLISH" and last_close > htf_prev_high:
+        conditions_met += 1
+    if htf_bias == "BEARISH" and last_close < htf_prev_low:
         conditions_met += 1
 
-    # Condition 2: Candle retest near support
-    if htf_bias == "BULLISH" and last_close <= support:
+    # 2. Retest: price near previous swing
+    if htf_bias == "BULLISH" and last_low <= htf_prev_low * 1.001:
+        conditions_met += 1
+    if htf_bias == "BEARISH" and last_high >= htf_prev_high * 0.999:
         conditions_met += 1
 
-    # Condition 3: Price above previous HH (CHoCH confirmation)
-    if htf_bias == "BULLISH" and last_close > prev_high:
-        conditions_met += 1
+    # Add more conditions like support/resistance, supply/demand, order blocks...
 
-    # Condition 4: Price bounce off zone (support/resistance)
-    if htf_bias == "BULLISH" and last_close <= support:
-        conditions_met += 1
+    if conditions_met >= 2:  # minimum required
+        # Set entry, SL, TP
+        if htf_bias == "BULLISH":
+            entry = last_close
+            sl = htf_prev_low
+            tp = entry + (entry - sl) * RR_RATIO
+        elif htf_bias == "BEARISH":
+            entry = last_close
+            sl = htf_prev_high
+            tp = entry - (sl - entry) * RR_RATIO
+        return {"symbol": symbol, "entry": entry, "sl": sl, "tp": tp, "direction": htf_bias}
 
-    # Condition 5: Candle retest below previous LTF low for bearish
-    if htf_bias == "BEARISH" and last_close < prev_low and last_close >= support:
-        conditions_met += 1
-
-    # Condition 6: Candle retest near resistance
-    if htf_bias == "BEARISH" and last_close >= resistance:
-        conditions_met += 1
-
-    # Condition 7: Price below previous LL (CHoCH confirmation)
-    if htf_bias == "BEARISH" and last_close < prev_low:
-        conditions_met += 1
-
-    # Condition 8: Price bounce off zone (support/resistance)
-    if htf_bias == "BEARISH" and last_close >= resistance:
-        conditions_met += 1
-
-    if conditions_met < 2:  # Minimum conditions required
-        return None
-
-    # Calculate dynamic SL/TP
-    if htf_bias == "BULLISH":
-        entry = last_close
-        sl = support
-        tp = max(highs[-10:])  # Next swing high
-        reason = "LTF retest bullish in HTF bullish context"
-        direction = "BUY"
-    elif htf_bias == "BEARISH":
-        entry = last_close
-        sl = resistance
-        tp = min(lows[-10:])  # Next swing low
-        reason = "LTF retest bearish in HTF bearish context"
-        direction = "SELL"
-    else:
-        return None
-
-    return {
-        "direction": direction,
-        "bias": htf_bias,
-        "entry": round(entry, 5),
-        "sl": round(sl, 5),
-        "tp": round(tp, 5),
-        "reason": reason
-    }
+    return None
