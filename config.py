@@ -3,7 +3,7 @@ import os
 # ==============================
 # API CONFIG
 # ==============================
-TWELVEDATA_API_KEY = os.getenv("d143e9bb8b0c4d7487872fd699280bde")
+TWELVEDATA_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 
 # ==============================
 # PAIRS
@@ -38,7 +38,6 @@ RR_MIN = 2
 # ==============================
 # TELEGRAM
 # ==============================
-TELEGRAM_TOKEN = os.getenv("8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc")
-TELEGRAM_CHAT_ID = os.getenv("6599172354")
-
+TELEGRAM_BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
+TELEGRAM_CHAT_ID = "6599172354"
 PAIR_STATE = {}
