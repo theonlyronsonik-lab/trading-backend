@@ -6,9 +6,9 @@ import os
 TWELVEDATA_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 
 # ==============================
-# PAIRS
+# SYMBOLS
 # ==============================
-PAIRS = [
+SYMBOLS = [
     "EUR/USD",
     "GBP/USD",
     "XAU/USD",
@@ -18,10 +18,10 @@ PAIRS = [
 # ==============================
 # TIMEFRAMES
 # ==============================
-HTF = "4h"
-LTF = "15min"
+HTF = "1h"
+LTF = "5min"
 
-HTF_SECONDS = 14400  # 4H
+HTF_SECONDS = 3600  # 4H
 
 # ==============================
 # SCANNING CONTROL
