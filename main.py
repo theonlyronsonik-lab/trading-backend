@@ -1,89 +1,67 @@
 import time
-from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-from telegram_bot import send_telegram_message
+from config import PAIRS, HTF, LTF, SCAN_INTERVAL
+from market_data import fetch_data, fetch_htf_cached
+from structure import get_htf_bias, detect_choch
+from entry import retest_entry
+from risk import calculate_dynamic_sl, calculate_tp
+from zones import get_next_swing_high, get_next_swing_low
+from notifier import send_message
 
-# -------------------------
-# SETTINGS
-# -------------------------
-SYMBOLS = ["GBP/USD", "EUR/USD", "AUD/CAD","XAU/USD", "USD/JPY"]
 
-HTF_TIMEFRAME = "30min"
-LTF_TIMEFRAME = "5min"
+HTF_SECONDS = 14400  # 4H
 
-SCAN_INTERVAL = 60  # seconds (checks every minute)
 
-# Track sent signals to avoid duplicates
-sent_signals = {}
+def scan_pair(symbol):
+    print(f"Scanning {symbol}")
 
-# -------------------------
-# MAIN LOOP
-# -------------------------
-def run_bot():
-    print("🚀 Ron_Market Scanner started...")
+    htf_data = fetch_htf_cached(symbol, HTF, HTF_SECONDS)
+    if not htf_data:
+        return
 
+    bias = get_htf_bias(htf_data)
+    if not bias:
+        return
+
+    ltf_data = fetch_data(symbol, LTF)
+    if not ltf_data:
+        return
+
+    if not detect_choch(ltf_data, bias):
+        return
+
+    entry = retest_entry(ltf_data, bias)
+    if not entry:
+        return
+
+    if bias == "bullish":
+        swing = min([float(c["low"]) for c in ltf_data[-5:]])
+        tp_target = get_next_swing_high(htf_data)
+    else:
+        swing = max([float(c["high"]) for c in ltf_data[-5:]])
+        tp_target = get_next_swing_low(htf_data)
+
+    sl = calculate_dynamic_sl(entry, swing, bias)
+    tp = calculate_tp(entry, sl, bias, tp_target)
+
+    message = f"""
+PAIR: {symbol}
+BIAS: {bias.upper()}
+
+ENTRY: {entry}
+SL: {sl}
+TP: {tp}
+"""
+
+    send_message(message)
+
+
+def main():
     while True:
-        for symbol in SYMBOLS:
-            try:
-                # -------------------------
-                # 1️⃣ HTF STRUCTURE
-                # -------------------------
-                htf_candles = fetch_candles(symbol, HTF_TIMEFRAME, limit=100)
-                if not htf_candles:
-                    continue
-
-                htf_bias = analyse_htf_structure(htf_candles)
-
-                # Send HTF bias once per change
-                if sent_signals.get(f"{symbol}_htf") != htf_bias:
-                    send_telegram_message(
-                        f"📊 HTF STRUCTURE\n\n"
-                        f"Symbol: {symbol}\n"
-                        f"Timeframe: {HTF_TIMEFRAME}\n"
-                        f"Bias: {htf_bias}"
-                    )
-                    sent_signals[f"{symbol}_htf"] = htf_bias
-
-                # Skip LTF if market is ranging
-                if htf_bias == "RANGE":
-                    continue
-
-                # -------------------------
-                # 2️⃣ LTF ENTRY
-                # -------------------------
-                ltf_candles = fetch_candles(symbol, LTF_TIMEFRAME, limit=100)
-                if not ltf_candles:
-                    continue
-
-                entry = analyse_ltf_entry(symbol, ltf_candles, htf_bias)
-
-                if entry:
-                    last_candle_time = ltf_candles[-2]["datetime"]
-                    signal_id = f"{symbol}_{last_candle_time}"
-
-                    # Prevent duplicate alerts
-                    if sent_signals.get(symbol) != signal_id:
-                        message = (
-                            f"🚨 LTF ENTRY SIGNAL 🚨\n\n"
-                            f"Symbol: {symbol}\n"
-                            f"Direction: {entry['direction']}\n"
-                            f"HTF Bias: {entry['bias']}\n\n"
-                            f"📍 Entry: {entry['entry']}\n"
-                            f"🛑 Stop Loss: {entry['sl']}\n"
-                            f"🎯 Take Profit: {entry['tp']}\n\n"
-                            f"📌 Reason:\n{entry['reason']}"
-                        )
-
-                        send_telegram_message(message)
-                        sent_signals[symbol] = signal_id
-
-            except Exception as e:
-                print(f"Error processing {symbol}: {e}")
+        for pair in PAIRS:
+            scan_pair(pair)
 
         time.sleep(SCAN_INTERVAL)
 
 
-# -------------------------
-# START BOT
-# -------------------------
 if __name__ == "__main__":
-    run_bot()
+    main()
