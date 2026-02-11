@@ -1,20 +1,61 @@
 import requests
-from datetime import datetime
+import time
 from config import API_KEY
 
-# -------------------------
-# FETCH CANDLES
-# -------------------------
-def fetch_candles(symbol, timeframe, limit=100):
-    url = f"https://api.twelvedata.com/time_series?symbol={symbol}&interval={timeframe}&apikey={API_KEY}&outputsize={limit}"
+def fetch_candles(symbol: str, timeframe: str, limit: int = 100):
+    """
+    Fetch historical candle data from TwelveData.
+    Handles free plan limits, errors, and validates symbols.
+    
+    Args:
+        symbol (str): Trading pair, e.g., "EUR/USD", "GBP/USD", "XAU/USD"
+        timeframe (str): Timeframe, e.g., "1min", "5min", "15min", "1h", "4h"
+        limit (int): Number of candles to fetch
+    
+    Returns:
+        list: List of candles as dictionaries with 'open', 'high', 'low', 'close', 'datetime'
+              or None if data cannot be fetched.
+    """
+    base_url = "https://api.twelvedata.com/time_series"
+    
+    params = {
+        "symbol": symbol,
+        "interval": timeframe,
+        "apikey": API_KEY,
+        "outputsize": limit
+    }
+
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(base_url, params=params, timeout=10)
         data = response.json()
-        if "values" not in data:
-            raise ValueError(f"No data returned for {symbol}")
-        # Return in chronological order
-        return list(reversed(data["values"]))
-    except Exception as e:
+
+        # Check for errors returned by TwelveData
+        if "status" in data and data["status"] == "error":
+            print(f"TwelveData error for {symbol}: {data.get('message', 'Unknown error')}")
+            return None
+        
+        if "values" not in data or len(data["values"]) == 0:
+            print(f"No data returned for {symbol}")
+            return None
+
+        # Convert candles to correct format
+        candles = [
+            {
+                "datetime": c["datetime"],
+                "open": float(c["open"]),
+                "high": float(c["high"]),
+                "low": float(c["low"]),
+                "close": float(c["close"])
+            }
+            for c in reversed(data["values"])  # oldest first
+        ]
+
+        # Respect free plan rate limit: 1 request/sec
+        time.sleep(1.2)
+
+        return candles
+
+    except requests.exceptions.RequestException as e:
         print(f"Error fetching candles for {symbol}: {e}")
         return None
 
