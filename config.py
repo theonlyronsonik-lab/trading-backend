@@ -3,7 +3,7 @@
 # ==============================
 
 # TwelveData API Key
-API_KEY = "aacf2d07c79840f3a6a149325f5c122c"
+API_KEY = "d2eb6b7532504ac3bc6d720f98b6171c"
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN = "8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc"
