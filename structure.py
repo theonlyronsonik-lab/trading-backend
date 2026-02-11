@@ -1,14 +1,28 @@
-def get_structure_bias(candles):
-    if not candles or len(candles) < 5:
-        return None
+def get_htf_bias(candles):
+    highs = [float(c["high"]) for c in candles]
+    lows = [float(c["low"]) for c in candles]
+    closes = [float(c["close"]) for c in candles]
 
-    highs = [c["high"] for c in candles]
-    lows = [c["low"] for c in candles]
-
-    if highs[-1] > highs[-3] and lows[-1] > lows[-3]:
+    if closes[-1] > highs[-2]:
         return "bullish"
 
-    if highs[-1] < highs[-3] and lows[-1] < lows[-3]:
+    if closes[-1] < lows[-2]:
         return "bearish"
 
-    return "range"
+    return None
+
+
+def detect_choch(candles, bias):
+    highs = [float(c["high"]) for c in candles]
+    lows = [float(c["low"]) for c in candles]
+    closes = [float(c["close"]) for c in candles]
+
+    if bias == "bullish":
+        if closes[-1] > highs[-2]:
+            return True
+
+    if bias == "bearish":
+        if closes[-1] < lows[-2]:
+            return True
+
+    return False
