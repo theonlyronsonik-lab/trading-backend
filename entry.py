@@ -14,7 +14,7 @@ def fetch_candles(symbol, interval, limit=100, api_key=None):
         "symbol": symbol,
         "interval": interval,
         "outputsize": limit,
-        "apikey": api_key
+        "apikey": TWELVEDATA_API_KEY 
     }
     try:
         response = requests.get(url, params=params, timeout=10)
