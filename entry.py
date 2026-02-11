@@ -1,492 +1,129 @@
-# main.py
+# entry.py
 
-import time
+import requests
 from datetime import datetime
-from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY
-from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-from telegram_bot import send_telegram_message
 
-# ==============================
-# STATE
-# ==============================
-htf_bias = {}
-htf_reported = set()
-htf_last_fetch = {}
+from config import API_KEY, RR, MIN_CONFIRMATIONS
 
-# ==============================
-# BOT START
-# ==============================
-def start_bot():
-    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
-    print("Bot started at", datetime.utcnow())
+# -------------------------
+# FETCH CANDLES
+# -------------------------
+def fetch_candles(symbol, interval, limit=100):
+    url = f"https://api.twelvedata.com/time_series?symbol={symbol}&interval={interval}&outputsize={limit}&apikey={API_KEY}"
+    try:
+        resp = requests.get(url, timeout=10)
+        data = resp.json()
+        if "values" not in data:
+            raise ValueError(f"No data returned for {symbol}")
+        return list(reversed(data["values"]))  # oldest to newest
+    except Exception as e:
+        print(f"Error fetching candles for {symbol}: {e}")
+        return []
 
-# ==============================
-# HTF ANALYSIS
-# ==============================
-def process_htf(symbol):
-    now = time.time()
-    # fetch HTF only if it's not fetched in the last HTF duration
-    last_fetch = htf_last_fetch.get(symbol, 0)
-    htf_seconds = 3600 if HTF == "1h" else 14400 if HTF == "4h" else 3600
-    if now - last_fetch < htf_seconds:
-        return htf_bias.get(symbol)
+# -------------------------
+# HTF STRUCTURE
+# -------------------------
+def analyse_htf_structure(candles):
+    highs = [float(c["high"]) for c in candles]
+    lows = [float(c["low"]) for c in candles]
+    closes = [float(c["close"]) for c in candles]
 
-    candles = fetch_candles(symbol, HTF, limit=100)
-    if not candles or len(candles) < 20:
+    prev_high = max(highs[-10:-5])
+    prev_low = min(lows[-10:-5])
+    recent_high = highs[-1]
+    recent_low = lows[-1]
+
+    if recent_high > prev_high and recent_low > prev_low:
+        return "BULLISH"
+    elif recent_high < prev_high and recent_low < prev_low:
+        return "BEARISH"
+    else:
+        return "RANGE"
+
+# -------------------------
+# LTF ENTRY (RETSTEST + CONDITIONS)
+# -------------------------
+def analyse_ltf_entry(candles, htf_bias):
+    if len(candles) < 20:
         return None
 
-    bias = analyse_htf_structure(candles)
-    htf_last_fetch[symbol] = now
-    htf_bias[symbol] = bias
-    return bias
-
-# ==============================
-# MAIN LOOP
-# ==============================
-def run():
-    start_bot()
-
-    while True:
-        for symbol in SYMBOLS:
-            try:
-                # -------- HTF --------
-                bias = process_htf(symbol)
-                if bias is None:
-                    continue
-
-                # Send HTF bias once per symbol
-                if symbol not in htf_reported:
-                    htf_reported.add(symbol)
-                    send_telegram_message(
-                        f"📊 HTF STRUCTURE\n\nSymbol: {symbol}\nTimeframe: {HTF}\nBias: {bias}"
-                    )
-
-                # -------- LTF --------
-                ltf_candles = fetch_candles(symbol, LTF, limit=100)
-                if not ltf_candles or len(ltf_candles) < 20:
-                    continue
-
-                entry = analyse_ltf_entry(ltf_candles, htf_bias[symbol])
-                if entry:
-                    send_telegram_message(entry)
-
-            except Exception as e:
-                print(f"Error scanning {symbol}: {e}")
-
-        time.sleep(LOOP_DELAY)
-
-# ==============================
-# ENTRY POINT
-# ==============================
-if __name__ == "__main__":
-    run()
-# main.py
-
-import time
-from datetime import datetime
-from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY
-from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-from telegram_bot import send_telegram_message
-
-# ==============================
-# STATE
-# ==============================
-htf_bias = {}
-htf_reported = set()
-htf_last_fetch = {}
-
-# ==============================
-# BOT START
-# ==============================
-def start_bot():
-    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
-    print("Bot started at", datetime.utcnow())
-
-# ==============================
-# HTF ANALYSIS
-# ==============================
-def process_htf(symbol):
-    now = time.time()
-    # fetch HTF only if it's not fetched in the last HTF duration
-    last_fetch = htf_last_fetch.get(symbol, 0)
-    htf_seconds = 3600 if HTF == "1h" else 14400 if HTF == "4h" else 3600
-    if now - last_fetch < htf_seconds:
-        return htf_bias.get(symbol)
-
-    candles = fetch_candles(symbol, HTF, limit=100)
-    if not candles or len(candles) < 20:
-        return None
-
-    bias = analyse_htf_structure(candles)
-    htf_last_fetch[symbol] = now
-    htf_bias[symbol] = bias
-    return bias
-
-# ==============================
-# MAIN LOOP
-# ==============================
-def run():
-    start_bot()
-
-    while True:
-        for symbol in SYMBOLS:
-            try:
-                # -------- HTF --------
-                bias = process_htf(symbol)
-                if bias is None:
-                    continue
-
-                # Send HTF bias once per symbol
-                if symbol not in htf_reported:
-                    htf_reported.add(symbol)
-                    send_telegram_message(
-                        f"📊 HTF STRUCTURE\n\nSymbol: {symbol}\nTimeframe: {HTF}\nBias: {bias}"
-                    )
-
-                # -------- LTF --------
-                ltf_candles = fetch_candles(symbol, LTF, limit=100)
-                if not ltf_candles or len(ltf_candles) < 20:
-                    continue
-
-                entry = analyse_ltf_entry(ltf_candles, htf_bias[symbol])
-                if entry:
-                    send_telegram_message(entry)
-
-            except Exception as e:
-                print(f"Error scanning {symbol}: {e}")
-
-        time.sleep(LOOP_DELAY)
-
-# ==============================
-# ENTRY POINT
-# ==============================
-if __name__ == "__main__":
-    run()
-# main.py
-
-import time
-from datetime import datetime
-from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY
-from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-from telegram_bot import send_telegram_message
-
-# ==============================
-# STATE
-# ==============================
-htf_bias = {}
-htf_reported = set()
-htf_last_fetch = {}
-
-# ==============================
-# BOT START
-# ==============================
-def start_bot():
-    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
-    print("Bot started at", datetime.utcnow())
-
-# ==============================
-# HTF ANALYSIS
-# ==============================
-def process_htf(symbol):
-    now = time.time()
-    # fetch HTF only if it's not fetched in the last HTF duration
-    last_fetch = htf_last_fetch.get(symbol, 0)
-    htf_seconds = 3600 if HTF == "1h" else 14400 if HTF == "4h" else 3600
-    if now - last_fetch < htf_seconds:
-        return htf_bias.get(symbol)
-
-    candles = fetch_candles(symbol, HTF, limit=100)
-    if not candles or len(candles) < 20:
-        return None
-
-    bias = analyse_htf_structure(candles)
-    htf_last_fetch[symbol] = now
-    htf_bias[symbol] = bias
-    return bias
-
-# ==============================
-# MAIN LOOP
-# ==============================
-def run():
-    start_bot()
-
-    while True:
-        for symbol in SYMBOLS:
-            try:
-                # -------- HTF --------
-                bias = process_htf(symbol)
-                if bias is None:
-                    continue
-
-                # Send HTF bias once per symbol
-                if symbol not in htf_reported:
-                    htf_reported.add(symbol)
-                    send_telegram_message(
-                        f"📊 HTF STRUCTURE\n\nSymbol: {symbol}\nTimeframe: {HTF}\nBias: {bias}"
-                    )
-
-                # -------- LTF --------
-                ltf_candles = fetch_candles(symbol, LTF, limit=100)
-                if not ltf_candles or len(ltf_candles) < 20:
-                    continue
-
-                entry = analyse_ltf_entry(ltf_candles, htf_bias[symbol])
-                if entry:
-                    send_telegram_message(entry)
-
-            except Exception as e:
-                print(f"Error scanning {symbol}: {e}")
-
-        time.sleep(LOOP_DELAY)
-
-# ==============================
-# ENTRY POINT
-# ==============================
-if __name__ == "__main__":
-    run()
-# main.py
-
-import time
-from datetime import datetime
-from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY
-from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-from telegram_bot import send_telegram_message
-
-# ==============================
-# STATE
-# ==============================
-htf_bias = {}
-htf_reported = set()
-htf_last_fetch = {}
-
-# ==============================
-# BOT START
-# ==============================
-def start_bot():
-    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
-    print("Bot started at", datetime.utcnow())
-
-# ==============================
-# HTF ANALYSIS
-# ==============================
-def process_htf(symbol):
-    now = time.time()
-    # fetch HTF only if it's not fetched in the last HTF duration
-    last_fetch = htf_last_fetch.get(symbol, 0)
-    htf_seconds = 3600 if HTF == "1h" else 14400 if HTF == "4h" else 3600
-    if now - last_fetch < htf_seconds:
-        return htf_bias.get(symbol)
-
-    candles = fetch_candles(symbol, HTF, limit=100)
-    if not candles or len(candles) < 20:
-        return None
-
-    bias = analyse_htf_structure(candles)
-    htf_last_fetch[symbol] = now
-    htf_bias[symbol] = bias
-    return bias
-
-# ==============================
-# MAIN LOOP
-# ==============================
-def run():
-    start_bot()
-
-    while True:
-        for symbol in SYMBOLS:
-            try:
-                # -------- HTF --------
-                bias = process_htf(symbol)
-                if bias is None:
-                    continue
-
-                # Send HTF bias once per symbol
-                if symbol not in htf_reported:
-                    htf_reported.add(symbol)
-                    send_telegram_message(
-                        f"📊 HTF STRUCTURE\n\nSymbol: {symbol}\nTimeframe: {HTF}\nBias: {bias}"
-                    )
-
-                # -------- LTF --------
-                ltf_candles = fetch_candles(symbol, LTF, limit=100)
-                if not ltf_candles or len(ltf_candles) < 20:
-                    continue
-
-                entry = analyse_ltf_entry(ltf_candles, htf_bias[symbol])
-                if entry:
-                    send_telegram_message(entry)
-
-            except Exception as e:
-                print(f"Error scanning {symbol}: {e}")
-
-        time.sleep(LOOP_DELAY)
-
-# ==============================
-# ENTRY POINT
-# ==============================
-if __name__ == "__main__":
-    run()
-# main.py
-
-import time
-from datetime import datetime
-from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY
-from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-from telegram_bot import send_telegram_message
-
-# ==============================
-# STATE
-# ==============================
-htf_bias = {}
-htf_reported = set()
-htf_last_fetch = {}
-
-# ==============================
-# BOT START
-# ==============================
-def start_bot():
-    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
-    print("Bot started at", datetime.utcnow())
-
-# ==============================
-# HTF ANALYSIS
-# ==============================
-def process_htf(symbol):
-    now = time.time()
-    # fetch HTF only if it's not fetched in the last HTF duration
-    last_fetch = htf_last_fetch.get(symbol, 0)
-    htf_seconds = 3600 if HTF == "1h" else 14400 if HTF == "4h" else 3600
-    if now - last_fetch < htf_seconds:
-        return htf_bias.get(symbol)
-
-    candles = fetch_candles(symbol, HTF, limit=100)
-    if not candles or len(candles) < 20:
-        return None
-
-    bias = analyse_htf_structure(candles)
-    htf_last_fetch[symbol] = now
-    htf_bias[symbol] = bias
-    return bias
-
-# ==============================
-# MAIN LOOP
-# ==============================
-def run():
-    start_bot()
-
-    while True:
-        for symbol in SYMBOLS:
-            try:
-                # -------- HTF --------
-                bias = process_htf(symbol)
-                if bias is None:
-                    continue
-
-                # Send HTF bias once per symbol
-                if symbol not in htf_reported:
-                    htf_reported.add(symbol)
-                    send_telegram_message(
-                        f"📊 HTF STRUCTURE\n\nSymbol: {symbol}\nTimeframe: {HTF}\nBias: {bias}"
-                    )
-
-                # -------- LTF --------
-                ltf_candles = fetch_candles(symbol, LTF, limit=100)
-                if not ltf_candles or len(ltf_candles) < 20:
-                    continue
-
-                entry = analyse_ltf_entry(ltf_candles, htf_bias[symbol])
-                if entry:
-                    send_telegram_message(entry)
-
-            except Exception as e:
-                print(f"Error scanning {symbol}: {e}")
-
-        time.sleep(LOOP_DELAY)
-
-# ==============================
-# ENTRY POINT
-# ==============================
-if __name__ == "__main__":
-    run()
-# main.py
-
-import time
-from datetime import datetime
-from config import SYMBOLS, HTF, LTF, LOOP_DELAY, API_KEY
-from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-from telegram_bot import send_telegram_message
-
-# ==============================
-# STATE
-# ==============================
-htf_bias = {}
-htf_reported = set()
-htf_last_fetch = {}
-
-# ==============================
-# BOT START
-# ==============================
-def start_bot():
-    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
-    print("Bot started at", datetime.utcnow())
-
-# ==============================
-# HTF ANALYSIS
-# ==============================
-def process_htf(symbol):
-    now = time.time()
-    # fetch HTF only if it's not fetched in the last HTF duration
-    last_fetch = htf_last_fetch.get(symbol, 0)
-    htf_seconds = 3600 if HTF == "1h" else 14400 if HTF == "4h" else 3600
-    if now - last_fetch < htf_seconds:
-        return htf_bias.get(symbol)
-
-    candles = fetch_candles(symbol, HTF, limit=100)
-    if not candles or len(candles) < 20:
-        return None
-
-    bias = analyse_htf_structure(candles)
-    htf_last_fetch[symbol] = now
-    htf_bias[symbol] = bias
-    return bias
-
-# ==============================
-# MAIN LOOP
-# ==============================
-def run():
-    start_bot()
-
-    while True:
-        for symbol in SYMBOLS:
-            try:
-                # -------- HTF --------
-                bias = process_htf(symbol)
-                if bias is None:
-                    continue
-
-                # Send HTF bias once per symbol
-                if symbol not in htf_reported:
-                    htf_reported.add(symbol)
-                    send_telegram_message(
-                        f"📊 HTF STRUCTURE\n\nSymbol: {symbol}\nTimeframe: {HTF}\nBias: {bias}"
-                    )
-
-                # -------- LTF --------
-                ltf_candles = fetch_candles(symbol, LTF, limit=100)
-                if not ltf_candles or len(ltf_candles) < 20:
-                    continue
-
-                entry = analyse_ltf_entry(ltf_candles, htf_bias[symbol])
-                if entry:
-                    send_telegram_message(entry)
-
-            except Exception as e:
-                print(f"Error scanning {symbol}: {e}")
-
-        time.sleep(LOOP_DELAY)
-
-# ==============================
-# ENTRY POINT
-# ==============================
-if __name__ == "__main__":
-    run()
+    highs = [float(c["high"]) for c in candles]
+    lows = [float(c["low"]) for c in candles]
+    closes = [float(c["close"]) for c in candles]
+
+    last_close = closes[-1]
+    last_high = highs[-1]
+    last_low = lows[-1]
+
+    # Find recent swing for support/resistance zones
+    swing_high = max(highs[-20:])
+    swing_low = min(lows[-20:])
+
+    # Example: simple support/resistance
+    support = swing_low
+    resistance = swing_high
+
+    conditions_met = 0
+    entry = None
+    sl = None
+    tp = None
+
+    # -------------------------
+    # Bullish Entry
+    # -------------------------
+    if htf_bias == "BULLISH":
+        # Condition 1: candle closes above LTF previous high (CHoCH)
+        if last_close > highs[-2]:
+            conditions_met += 1
+
+        # Condition 2: retest of support or previous swing low
+        if last_low <= support:
+            conditions_met += 1
+
+        # Condition 3: price in discount zone of swing range
+        if last_close <= (support + (resistance - support) * 0.38):
+            conditions_met += 1
+
+        if conditions_met >= MIN_CONFIRMATIONS:
+            entry = last_close
+            sl = support
+            tp = entry + (entry - sl) * RR
+            return {
+                "direction": "BUY",
+                "bias": htf_bias,
+                "entry": round(entry, 5),
+                "sl": round(sl, 5),
+                "tp": round(tp, 5),
+                "reason": f"LTF bullish entry confirmed ({conditions_met}/{MIN_CONFIRMATIONS} conditions)"
+            }
+
+    # -------------------------
+    # Bearish Entry
+    # -------------------------
+    if htf_bias == "BEARISH":
+        # Condition 1: candle closes below LTF previous low (CHoCH)
+        if last_close < lows[-2]:
+            conditions_met += 1
+
+        # Condition 2: retest of resistance or previous swing high
+        if last_high >= resistance:
+            conditions_met += 1
+
+        # Condition 3: price in premium zone of swing range
+        if last_close >= (resistance - (resistance - support) * 0.38):
+            conditions_met += 1
+
+        if conditions_met >= MIN_CONFIRMATIONS:
+            entry = last_close
+            sl = resistance
+            tp = entry - (sl - entry) * RR
+            return {
+                "direction": "SELL",
+                "bias": htf_bias,
+                "entry": round(entry, 5),
+                "sl": round(sl, 5),
+                "tp": round(tp, 5),
+                "reason": f"LTF bearish entry confirmed ({conditions_met}/{MIN_CONFIRMATIONS} conditions)"
+            }
+
+    return None
