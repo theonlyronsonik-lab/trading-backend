@@ -1,7 +1,7 @@
 # config.py
 
 # Symbols to scan
-SYMBOLS = ["EUR/USD", "GBP/USD", "XAU/USD", "AUD/CAD"]
+SYMBOLS = ["EUR/USD", "GBP/USD", "XAU/USD", ]
 
 # Timeframes
 HTF = "1h"    # Higher timeframe
