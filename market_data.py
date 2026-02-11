@@ -1,33 +1,43 @@
 import requests
-from config import TWELVE_DATA_API_KEY, CANDLE_LIMIT
+import time
+from config import TWELVEDATA_API_KEY, HTF_CACHE
+
+BASE_URL = "https://api.twelvedata.com/time_series"
 
 
-def fetch_candles(symbol, timeframe):
-    url = "https://api.twelvedata.com/time_series"
-
+def fetch_data(symbol, interval, outputsize=200):
+    url = BASE_URL
     params = {
         "symbol": symbol,
-        "interval": timeframe,
-        "apikey": TWELVE_DATA_API_KEY,
-        "outputsize": CANDLE_LIMIT,
-        "format": "JSON"
+        "interval": interval,
+        "outputsize": outputsize,
+        "apikey": TWELVEDATA_API_KEY
     }
 
     response = requests.get(url, params=params)
     data = response.json()
 
     if "values" not in data:
-        print(f"No candle data for {symbol} ({timeframe})")
-        print("Response:", data)
         return None
 
-    candles = []
-    for c in reversed(data["values"]):
-        candles.append({
-            "open": float(c["open"]),
-            "high": float(c["high"]),
-            "low": float(c["low"]),
-            "close": float(c["close"])
-        })
-
+    candles = data["values"]
+    candles.reverse()
     return candles
+
+
+def fetch_htf_cached(symbol, interval, htf_seconds):
+    now = time.time()
+
+    if symbol in HTF_CACHE:
+        last_fetch = HTF_CACHE[symbol]["time"]
+        if now - last_fetch < htf_seconds:
+            return HTF_CACHE[symbol]["data"]
+
+    data = fetch_data(symbol, interval)
+    if data:
+        HTF_CACHE[symbol] = {
+            "time": now,
+            "data": data
+        }
+
+    return data
