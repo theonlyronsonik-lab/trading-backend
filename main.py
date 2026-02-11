@@ -10,7 +10,7 @@ SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD", "AUD/CAD"]
 HTF_TIMEFRAME = "1h"
 LTF_TIMEFRAME = "5min"
 
-SCAN_INTERVAL = 120  # seconds (checks every minute)
+SCAN_INTERVAL = 60  # seconds (checks every minute)
 
 # Track sent signals to avoid duplicates
 sent_signals = {}
