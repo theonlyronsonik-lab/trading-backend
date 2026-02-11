@@ -3,7 +3,7 @@ import os
 # ==============================
 # API CONFIG
 # ==============================
-TWELVEDATA_API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
+API_KEY = "d143e9bb8b0c4d7487872fd699280bde"
 
 # ==============================
 # SYMBOLS
