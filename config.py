@@ -38,3 +38,5 @@ RR_MIN = 2
 # ==============================
 TELEGRAM_TOKEN = os.getenv("8529456380:AAF2Ed2EoEtGRTfAX4a67Vd89KSnMUImdQc")
 TELEGRAM_CHAT_ID = os.getenv("6599172354")
+
+PAIR_STATE = {}
