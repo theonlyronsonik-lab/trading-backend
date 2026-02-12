@@ -51,5 +51,5 @@ def run(symbol):
 
 
 if __name__ == "__main__":
-    run()
+    run("EUR/USD")
 
