@@ -1,10 +1,11 @@
-def calculate_dynamic_sl(entry, swing, bias):
-    if bias == "bullish":
-        return swing - (entry * 0.001)
+# risk.py
 
-    if bias == "bearish":
-        return swing + (entry * 0.001)
+def calculate_lot_size(balance, entry, sl, risk_percent):
+    risk_amount = balance * risk_percent
+    stop_distance = abs(entry - sl)
 
+    if stop_distance == 0:
+        return 0
 
-def calculate_tp(entry, sl, bias, target):
-    return target
+    lot = risk_amount / stop_distance
+    return round(lot, 2)
