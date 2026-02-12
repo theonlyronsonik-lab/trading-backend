@@ -6,7 +6,7 @@
 SYMBOLS = ["XAU/USD", "USD/JPY", "GBP/USD", "GBP/NZD"]  # add more symbols here
 HTF = "4h"  # Higher Timeframe
 LTF = "15min"  # Lower Timeframe
-LOOP_DELAY = 60  # seconds between API calls to respect free plan limits
+LOOP_DELAY = 300  # seconds between API calls to respect free plan limits
 
 # -----------------------------
 # TELEGRAM CONFIG
