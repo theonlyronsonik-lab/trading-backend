@@ -10,6 +10,8 @@ LTF = "15min"    # Lower Timeframe
 # Scan loop delay (seconds) to avoid exceeding API
 LOOP_DELAY = 120
 
+RISK_PERCENT = 0.05
+
 # TwelveData API Key
 API_KEY = "d2849e2ab0c042edb97b8276d864a41b"
 
