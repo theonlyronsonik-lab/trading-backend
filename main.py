@@ -1,52 +1,54 @@
 # main.py
-import time
-from config import SYMBOLS, LOOP_DELAY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-from entry import fetch_candles, analyse_htf_structure, analyse_ltf_entry
-import requests
-from datetime import datetime
 
-def send_telegram_message(message):
-    if TELEGRAM_BOT_TOKEN is None:
-        print("Telegram bot token not set.")
+from state import BotState
+from structure import detect_bos, check_htf_retest
+from entry import detect_choch, check_entry
+from risk import calculate_lot_size
+
+import pandas as pd
+
+HTF_TIMEFRAME = "1h"
+LTF_TIMEFRAME = "5m"
+RISK_PERCENT = 0.05
+
+state = BotState()
+
+def get_candles(symbol, timeframe):
+    # Replace with your TwelveData fetch
+    return pd.DataFrame()
+
+def get_balance():
+    return 1000
+
+def send_order(signal, lot):
+    print("Placing Trade:")
+    print(signal)
+    print("Lot:", lot)
+
+
+def run(symbol):
+    htf = get_candles(symbol, HTF_TIMEFRAME)
+    ltf = get_candles(symbol, LTF_TIMEFRAME)
+
+    if htf.empty or ltf.empty:
+        print("No data returned.")
         return
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
-    try:
-        requests.post(url, data=data)
-    except Exception as e:
-        print(f"Error sending Telegram message: {e}")
 
-def scan_symbol(symbol):
-    df_htf = fetch_candles(symbol, "1h")
-    if df_htf is None:
-        print(f"Error fetching HTF candles for {symbol}")
-        return
+    detect_bos(htf, state)
 
-    htf_bias, prev_high, prev_low = analyse_htf_structure(df_htf)
-    if htf_bias is None:
-        return
+    current_price = ltf["close"].iloc[-1]
 
-    send_telegram_message(f"📊 {symbol} HTF: {htf_bias}")
+    check_htf_retest(current_price, state)
 
-    ltf_signal = analyse_ltf_entry(symbol, htf_bias, prev_high, prev_low)
-    if ltf_signal:
-        msg = (f"🚀 {symbol} LTF ENTRY\n"
-               f"Direction: {ltf_signal['direction']}\n"
-               f"Entry: {ltf_signal['entry']}\n"
-               f"SL: {ltf_signal['sl']}\n"
-               f"TP: {ltf_signal['tp']}")
-        send_telegram_message(msg)
+    detect_choch(ltf, state)
 
-def run():
-    send_telegram_message("🤖 Ron_Market Scanner is LIVE.")
-    print("Bot started at", datetime.now())
-    while True:
-        for symbol in SYMBOLS:
-            try:
-                scan_symbol(symbol)
-            except Exception as e:
-                print(f"Error scanning {symbol}: {e}")
-        time.sleep(LOOP_DELAY)
+    signal = check_entry(ltf, state)
+
+    if signal:
+        balance = get_balance()
+        lot = calculate_lot_size(balance, signal["entry"], signal["sl"], RISK_PERCENT)
+        send_order(signal, lot)
+
 
 if __name__ == "__main__":
     run()
