@@ -4,11 +4,11 @@
 SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD", "AUD/CAD"]
 
 # Timeframes
-HTF = "1h"      # Higher Timeframe
-LTF = "5min"    # Lower Timeframe
+HTF = "4h"      # Higher Timeframe
+LTF = "15min"    # Lower Timeframe
 
 # Scan loop delay (seconds) to avoid exceeding API
-LOOP_DELAY = 60
+LOOP_DELAY = 120
 
 # TwelveData API Key
 API_KEY = "d2849e2ab0c042edb97b8276d864a41b"
