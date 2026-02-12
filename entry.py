@@ -6,7 +6,7 @@ import time
 # -----------------------------
 # CONFIG / GLOBALS
 # -----------------------------
-API_KEY = "YOUR_TWELVEDATA_KEY"  # set your API key here
+API_KEY = "d2849e2ab0c042edb97b8276d864a41b"  # set your API key here
 API_LOOP_DELAY = 12  # seconds between API calls to avoid free plan limit
 HTF_CACHE = {}  # cache for HTF candles to avoid repeated calls
 
