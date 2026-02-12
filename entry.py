@@ -1,103 +1,153 @@
 # entry.py
+import requests
+import pandas as pd
+import time
 
-def find_ltf_swings(df):
-    swing_high = None
-    swing_low = None
+# -----------------------------
+# CONFIG / GLOBALS
+# -----------------------------
+API_KEY = "YOUR_TWELVEDATA_KEY"  # set your API key here
+API_LOOP_DELAY = 12  # seconds between API calls to avoid free plan limit
+HTF_CACHE = {}  # cache for HTF candles to avoid repeated calls
 
-    for i in range(2, len(df) - 2):
-        if (
-            df["high"].iloc[i] > df["high"].iloc[i-1] and
-            df["high"].iloc[i] > df["high"].iloc[i-2] and
-            df["high"].iloc[i] > df["high"].iloc[i+1] and
-            df["high"].iloc[i] > df["high"].iloc[i+2]
-        ):
-            swing_high = df["high"].iloc[i]
+# -----------------------------
+# GET CANDLES
+# -----------------------------
+def get_candles(symbol, timeframe, limit=100):
+    """
+    Fetches OHLC candles from TwelveData. Returns DataFrame.
+    """
+    if timeframe in HTF_CACHE.get(symbol, {}):
+        # use cached HTF candles if timeframe matches cached
+        df, last_fetch_time = HTF_CACHE[symbol][timeframe]
+        elapsed = time.time() - last_fetch_time
+        # only fetch new HTF if elapsed >= timeframe in seconds
+        tf_seconds = timeframe_to_seconds(timeframe)
+        if elapsed < tf_seconds:
+            return df
 
-        if (
-            df["low"].iloc[i] < df["low"].iloc[i-1] and
-            df["low"].iloc[i] < df["low"].iloc[i-2] and
-            df["low"].iloc[i] < df["low"].iloc[i+1] and
-            df["low"].iloc[i] < df["low"].iloc[i+2]
-        ):
-            swing_low = df["low"].iloc[i]
+    url = f"https://api.twelvedata.com/time_series"
+    params = {
+        "symbol": symbol,
+        "interval": timeframe,
+        "outputsize": limit,
+        "apikey": API_KEY
+    }
 
-    return swing_high, swing_low
+    try:
+        r = requests.get(url, params=params)
+        data = r.json()
+        if "values" not in data:
+            print(f"No data returned for {symbol} ({timeframe})")
+            return pd.DataFrame()
+        df = pd.DataFrame(data["values"])
+        df = df[::-1]  # chronological order
+        for col in ["open", "high", "low", "close"]:
+            df[col] = df[col].astype(float)
 
+        # Cache HTF candles
+        if symbol not in HTF_CACHE:
+            HTF_CACHE[symbol] = {}
+        HTF_CACHE[symbol][timeframe] = (df, time.time())
 
-def detect_choch(df, state):
-    if not state.waiting_for_choch:
-        return False
+        return df
 
-    swing_high, swing_low = find_ltf_swings(df)
-    last_close = df["close"].iloc[-1]
+    except Exception as e:
+        print(f"TwelveData error for {symbol}: {e}")
+        return pd.DataFrame()
+    finally:
+        time.sleep(API_LOOP_DELAY)
 
-    if state.direction == "bullish" and swing_high and last_close > swing_high:
-        state.choch_level = swing_high
-        return True
+# -----------------------------
+# HTF ANALYSIS
+# -----------------------------
+def analyse_htf_structure(df):
+    """
+    Determines HTF bias using HH/HL or LL/LH logic.
+    Returns "BULLISH", "BEARISH", or "RANGE".
+    """
+    if df.empty or len(df) < 3:
+        return "RANGE"
 
-    if state.direction == "bearish" and swing_low and last_close < swing_low:
-        state.choch_level = swing_low
-        return True
+    highs = df['high']
+    lows = df['low']
+    closes = df['close']
 
-    return False
+    if closes.iloc[-1] > highs.iloc[-2]:
+        return "BULLISH"
+    elif closes.iloc[-1] < lows.iloc[-2]:
+        return "BEARISH"
+    else:
+        return "RANGE"
 
+# -----------------------------
+# LTF ENTRY WITH RE-TEST
+# -----------------------------
+def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_needed=2):
+    """
+    Checks for retest entry within swing range with min 2 confirmations:
+    - CHoCH/BOS
+    - Support/Resistance
+    - Supply/Demand
+    """
+    if ltf_df.empty:
+        return None, None, None
 
-def check_entry(df, state):
-    if state.trade_taken:
-        return None
-
-    if state.choch_level is None:
-        return None
-
-    current = df.iloc[-1]
-    price = current["close"]
+    last_close = ltf_df['close'].iloc[-1]
+    last_low = ltf_df['low'].iloc[-1]
+    last_high = ltf_df['high'].iloc[-1]
 
     confirmations = 0
 
-    # Confirmation 1: Retest of CHoCH level
-    if state.direction == "bullish" and price <= state.choch_level:
+    # CHoCH/BOS confirmation
+    if htf_bias == "BULLISH" and last_close > swing_high:
+        confirmations += 1
+    elif htf_bias == "BEARISH" and last_close < swing_low:
         confirmations += 1
 
-    if state.direction == "bearish" and price >= state.choch_level:
+    # Support/Resistance retest confirmation
+    if htf_bias == "BULLISH" and last_low <= swing_low:
+        confirmations += 1
+    elif htf_bias == "BEARISH" and last_high >= swing_high:
         confirmations += 1
 
-    # Confirmation 2: Discount / Premium
-    midpoint = (state.range_high + state.range_low) / 2
-
-    if state.direction == "bullish" and price < midpoint:
+    # Supply/Demand zone confirmation (simple example)
+    # Here you can replace with your supply/demand detection logic
+    demand_zone = swing_low + (swing_high - swing_low) * 0.3
+    supply_zone = swing_high - (swing_high - swing_low) * 0.3
+    if htf_bias == "BULLISH" and last_low <= demand_zone:
+        confirmations += 1
+    elif htf_bias == "BEARISH" and last_high >= supply_zone:
         confirmations += 1
 
-    if state.direction == "bearish" and price > midpoint:
-        confirmations += 1
+    # Only send entry if minimum confirmations met
+    MIN_CONFIRMATIONS = confirmations_needed
+    if confirmations < MIN_CONFIRMATIONS:
+        return None, None, None
 
-    # Confirmation 3: Strong candle
-    if state.direction == "bullish" and current["close"] > current["open"]:
-        confirmations += 1
-
-    if state.direction == "bearish" and current["close"] < current["open"]:
-        confirmations += 1
-
-    if confirmations >= 2:
-        sl, tp = calculate_sl_tp(price, state)
-        state.trade_taken = True
-        state.waiting_for_choch = False
-        state.choch_level = None
-        return {
-            "direction": state.direction,
-            "entry": price,
-            "sl": sl,
-            "tp": tp
-        }
-
-    return None
-
-
-def calculate_sl_tp(price, state):
-    if state.direction == "bullish":
-        sl = state.range_low
-        tp = state.range_high
+    # Entry at retest
+    if htf_bias == "BULLISH":
+        entry = last_close
+        sl = swing_low
+        tp = swing_high  # dynamic TP within swing range
     else:
-        sl = state.range_high
-        tp = state.range_low
+        entry = last_close
+        sl = swing_high
+        tp = swing_low
 
-    return sl, tp
+    return entry, sl, tp
+
+# -----------------------------
+# UTILITY: TIMEFRAME TO SECONDS
+# -----------------------------
+def timeframe_to_seconds(tf):
+    """
+    Converts TwelveData timeframe string to seconds.
+    """
+    if tf.endswith("min"):
+        return int(tf.replace("min", "")) * 60
+    elif tf.endswith("h"):
+        return int(tf.replace("h", "")) * 3600
+    elif tf.endswith("D"):
+        return int(tf.replace("D", "")) * 86400
+    return 60  # default fallback
