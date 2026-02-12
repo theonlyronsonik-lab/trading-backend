@@ -1,31 +1,14 @@
-import json
-import os
+# state.py
 
-STATE_FILE = "signal_state.json"
-
-
-def load_state():
-    if not os.path.exists(STATE_FILE):
-        return {}
-    with open(STATE_FILE, "r") as f:
-        return json.load(f)
-
-
-def save_state(state):
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f, indent=2)
-
-
-def is_new_structure(symbol, structure):
-    state = load_state()
-
-    if symbol not in state:
-        return True
-
-    return state[symbol] != structure
-
-
-def update_structure(symbol, structure):
-    state = load_state()
-    state[symbol] = structure
-    save_state(state)
+class BotState:
+    def __init__(self):
+        self.direction = None
+        self.range_low = None
+        self.range_high = None
+        self.supply_zone = None
+        self.demand_zone = None
+        self.trade_taken = False
+        self.waiting_for_htf_retest = False
+        self.waiting_for_choch = False
+        self.choch_level = None
+        self.last_bos_time = None
