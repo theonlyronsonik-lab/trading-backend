@@ -3,9 +3,9 @@
 # -----------------------------
 # SYMBOLS AND TIMEFRAMES
 # -----------------------------
-SYMBOLS = ["XAU/USD", "GBP/USD","GBP/JPY", "USD/JPY", "GBP/NZD" ," GBP/CHF" ," EUR/USD" , "EUR/JPY"]  # add more symbols here
-HTF = "15min"  # Higher Timeframe
-LTF = "1min"  # Lower Timeframe
+SYMBOLS = ["XAU/USD", "GBP/USD","GBP/JPY"]  # add more symbols here
+HTF = "30min"  # Higher Timeframe
+LTF = "5min"  # Lower Timeframe
 LOOP_DELAY = 30  # seconds between API calls to respect free plan limits
 
 # -----------------------------
