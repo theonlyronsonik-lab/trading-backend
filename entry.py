@@ -83,7 +83,7 @@ def analyse_htf_structure(df):
 # -----------------------------
 # LTF ENTRY WITH RE-TEST
 # -----------------------------
-def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_needed=2):
+def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_needed=1):
     """
     Checks for retest entry within swing range with min 2 confirmations:
     - CHoCH/BOS
@@ -99,13 +99,6 @@ def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_nee
 
     confirmations = 0
 
-    # CHoCH/BOS confirmation
-    if htf_bias == "BULLISH" and last_close > swing_high:
-        confirmations += 1
-    elif htf_bias == "BEARISH" and last_close < swing_low:
-        confirmations += 1
-
-  
     # Supply/Demand zone confirmation (simple example)
     # Here you can replace with your supply/demand detection logic
     demand_zone = swing_low + (swing_high - swing_low) * 0.3
