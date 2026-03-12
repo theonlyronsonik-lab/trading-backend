@@ -7,7 +7,7 @@ import time
 # CONFIG / GLOBALS
 # -----------------------------
 API_KEY = "aacf2d07c79840f3a6a149325f5c122c"  # set your API key here
-API_LOOP_DELAY = 300  # seconds between API calls to avoid free plan limit
+API_LOOP_DELAY = 30  # seconds between API calls to avoid free plan limit
 HTF_CACHE = {}  # cache for HTF candles to avoid repeated calls
 
 # -----------------------------
@@ -105,12 +105,7 @@ def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_nee
     elif htf_bias == "BEARISH" and last_close < swing_low:
         confirmations += 1
 
-    # Support/Resistance retest confirmation
-    if htf_bias == "BULLISH" and last_low <= swing_low:
-        confirmations += 1
-    elif htf_bias == "BEARISH" and last_high >= swing_high:
-        confirmations += 1
-
+  
     # Supply/Demand zone confirmation (simple example)
     # Here you can replace with your supply/demand detection logic
     demand_zone = swing_low + (swing_high - swing_low) * 0.3
@@ -125,17 +120,7 @@ def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_nee
     if confirmations < MIN_CONFIRMATIONS:
         return None, None, None
 
-    # Entry at retest
-    if htf_bias == "BULLISH":
-        entry = last_close
-        sl = swing_low
-        tp = swing_high  # dynamic TP within swing range
-    else:
-        entry = last_close
-        sl = swing_high
-        tp = swing_low
-
-    return entry, sl, tp
+ 
 
 # -----------------------------
 # UTILITY: TIMEFRAME TO SECONDS
