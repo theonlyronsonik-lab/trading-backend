@@ -7,7 +7,7 @@ import time
 # CONFIG / GLOBALS
 # -----------------------------
 API_KEY = "aacf2d07c79840f3a6a149325f5c122c"  # set your API key here
-API_LOOP_DELAY = 30  # seconds between API calls to avoid free plan limit
+API_LOOP_DELAY = 60  # seconds between API calls to avoid free plan limit
 HTF_CACHE = {}  # cache for HTF candles to avoid repeated calls
 
 # -----------------------------
