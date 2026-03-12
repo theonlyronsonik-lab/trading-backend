@@ -85,7 +85,7 @@ def analyse_htf_structure(df):
 # -----------------------------
 def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_needed=1):
     """
-    Checks for retest entry within swing range with min 2 confirmations:
+    Checks for retest entry within swing range with min 1 confirmations:
     - CHoCH/BOS
     - Support/Resistance
     - Supply/Demand
