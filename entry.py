@@ -103,17 +103,7 @@ def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_nee
     if htf_bias == "BULLISH" and last_close > swing_high:
         confirmations += 1
     elif htf_bias == "BEARISH" and last_close < swing_low:
-        confirmations += 1   
-
-return entry, sl, tp
-
-# Support/Resistance retest confirmation  
-  if htf_bias == "BULLISH" and last_low <= swing_low:  
-      confirmations += 1  
-  elif htf_bias == "BEARISH" and last_high >= swing_high:  
-      confirmations += 1
-      
-
+        confirmations += 1
 
   
     # Supply/Demand zone confirmation (simple example)
@@ -144,5 +134,6 @@ def timeframe_to_seconds(tf):
     elif tf.endswith("h"):
         return int(tf.replace("h", "")) * 3600
     elif tf.endswith("D"):
-        return int(tf.replace("D", "")) * 86400
+        return
+        int(tf.replace("D", "")) * 86400
     return 60  # default fallback
