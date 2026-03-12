@@ -18,4 +18,4 @@ TELEGRAM_CHAT_ID = "6599172354"
 # LTF ENTRY SETTINGS
 # -----------------------------
 MIN_CONFIRMATIONS = 2  # minimum confirmations for LTF signal
-CONFIRMATIONS_TOTAL = 8  # total confirmations considered
+CONFIRMATIONS_TOTAL = 5  # total confirmations considered
