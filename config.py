@@ -6,7 +6,7 @@
 SYMBOLS = ["XAU/USD", "GBP/USD","GBP/JPY"]  # add more symbols here
 HTF = "30min"  # Higher Timeframe
 LTF = "3min"  # Lower Timeframe
-LOOP_DELAY = 30  # seconds between API calls to respect free plan limits
+LOOP_DELAY = 180  # seconds between API calls to respect free plan limits
 
 # -----------------------------
 # TELEGRAM CONFIG
@@ -17,5 +17,5 @@ TELEGRAM_CHAT_ID = "6599172354"
 # -----------------------------
 # LTF ENTRY SETTINGS
 # -----------------------------
-MIN_CONFIRMATIONS = 2  # minimum confirmations for LTF signal
-CONFIRMATIONS_TOTAL = 5  # total confirmations considered
+MIN_CONFIRMATIONS = 1  # minimum confirmations for LTF signal
+CONFIRMATIONS_TOTAL = 3  # total confirmations considered
