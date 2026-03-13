@@ -83,9 +83,9 @@ def analyse_htf_structure(df):
 # -----------------------------
 # LTF ENTRY WITH RE-TEST
 # -----------------------------
-def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_needed=1):
+def analyse_ltf_entry(htf_bias, ltf_df, swing_low, swing_high, confirmations_needed=2):
     """
-    Checks for retest entry within swing range with min 1 confirmations:
+    Checks for retest entry within swing range with min 2 confirmations:
     - CHoCH/BOS
     - Support/Resistance
     - Supply/Demand
@@ -134,5 +134,5 @@ def timeframe_to_seconds(tf):
     elif tf.endswith("h"):
         return int(tf.replace("h", "")) * 3600
     elif tf.endswith("D"):
-        return int(tf.replace("D", "")) * 86400
+        returnint(tf.replace("D", "")) * 86400
     return 60  # default fallback
